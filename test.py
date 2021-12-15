@@ -13,6 +13,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 from collections import defaultdict
 
 from utils import *
+from constants import *
 
 
 if __name__ == '__main__':
@@ -24,7 +25,7 @@ if __name__ == '__main__':
     test_data_loader = create_reliable_news_dataloader(
         os.path.join(CONFIG['FILE_PATH'], 'test.jsonl'),
         tokenizer,
-        sample=30
+        sample = CONFIG['SAMPLE']
     )
 
     checkpoint = torch.load('best_' + CONFIG['MODEL_NAME'] + '_state.bin', map_location=torch.device(CONFIG['DEVICE']))

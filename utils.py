@@ -14,16 +14,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import classification_report, confusion_matrix
 
-CONFIG = {
-        'FILE_PATH': os.path.join('data', 'nela_gt_2018_site_split'),
-        'MODEL_NAME': 'bert-base-cased',
-        # 'DEVICE' : torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
-        'DEVICE': 'cpu',
-        'MAX_LEN': 128,
-        'BATCH_SIZE': 8,
-        'EPOCHS': 10,
-        'LR': 2e-5
-    }
+from constants import *
 
 '''
 Convert jsonl files to pandas dataset

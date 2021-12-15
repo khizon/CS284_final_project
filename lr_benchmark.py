@@ -13,6 +13,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 from collections import defaultdict
 
 from utils import *
+from constants import *
 
 if __name__ == '__main__':
 
@@ -28,13 +29,13 @@ if __name__ == '__main__':
         os.path.join(CONFIG['FILE_PATH'], 'train.jsonl'),
         tokenizer,
         shuffle=True,
-        sample=30
+        sample = CONFIG['SAMPLE']
     )
 
     val_data_loader = create_reliable_news_dataloader(
         os.path.join(CONFIG['FILE_PATH'], 'val.jsonl'),
         tokenizer,
-        sample=16
+        sample = CONFIG['SAMPLE']
     )
 
     optimizer = AdamW(model.parameters(), lr=CONFIG['LR'])
@@ -42,7 +43,7 @@ if __name__ == '__main__':
 
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
-        num_warmup_steps = total_steps//10,
+        num_warmup_steps = int(total_steps * CONFIG['WARMUP']),
         num_training_steps = total_steps
     )
 
