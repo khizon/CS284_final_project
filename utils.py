@@ -14,6 +14,17 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import classification_report, confusion_matrix
 
+CONFIG = {
+        'FILE_PATH': os.path.join('data', 'nela_gt_2018_site_split'),
+        'MODEL_NAME': 'bert-base-cased',
+        # 'DEVICE' : torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
+        'DEVICE': 'cpu',
+        'MAX_LEN': 128,
+        'BATCH_SIZE': 8,
+        'EPOCHS': 10,
+        'LR': 2e-5
+    }
+
 '''
 Convert jsonl files to pandas dataset
 '''
@@ -174,6 +185,40 @@ def eval_model(model, data_loader, criterion, device):
     return correct_predictions / n_examples, np.mean(losses)
 
 '''
+Get Predictions
+'''
+def get_predictions(model, data_loader):
+    model = model.eval()
+    
+    review_texts = []
+    predictions = []
+    prediction_probs = []
+    real_values = []
+
+    with torch.no_grad():
+        loop = tqdm(data_loader)
+        for idx, d in enumerate(loop):
+
+            texts = d["title"]
+            input_ids = d["input_ids"].to(CONFIG['DEVICE'])
+            attention_mask = d["attention_mask"].to(CONFIG['DEVICE'])
+            targets = d["labels"].to(CONFIG['DEVICE'])
+
+            outputs = model(
+                input_ids=input_ids,
+                attention_mask=attention_mask
+            )
+            preds = torch.round(torch.sigmoid(outputs))
+
+            review_texts.extend(texts)
+            predictions.extend(preds)
+            real_values.extend(targets)
+
+    predictions = torch.stack(predictions).cpu()
+    real_values = torch.stack(real_values).cpu()
+    return review_texts, predictions, real_values
+
+'''
 Early Stopping
 '''
 class EarlyStopping():
@@ -193,7 +238,7 @@ class EarlyStopping():
         self.counter = 0
         self.best_acc = None
         self.early_stop = False
-        
+
     def __call__(self, val_acc):
         if self.best_acc == None:
             self.best_acc = val_acc
