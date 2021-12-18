@@ -196,7 +196,7 @@ def get_predictions(model, data_loader):
         loop = tqdm(data_loader)
         for idx, d in enumerate(loop):
 
-            texts = d["title"]
+            texts = d["text"]
             input_ids = d["input_ids"].to(CONFIG['DEVICE'])
             attention_mask = d["attention_mask"].to(CONFIG['DEVICE'])
             targets = d["labels"].to(CONFIG['DEVICE'])
