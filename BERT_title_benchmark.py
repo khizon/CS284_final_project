@@ -29,13 +29,15 @@ if __name__ == '__main__':
         os.path.join(CONFIG['FILE_PATH'], 'train.jsonl'),
         tokenizer,
         shuffle=True,
-        sample = CONFIG['SAMPLE']
+        sample = CONFIG['SAMPLE'],
+        title_only = CONFIG['TITLE_ONLY']
     )
 
     val_data_loader = create_reliable_news_dataloader(
         os.path.join(CONFIG['FILE_PATH'], 'val.jsonl'),
         tokenizer,
-        sample = CONFIG['SAMPLE']
+        sample = CONFIG['SAMPLE'],
+        title_only = CONFIG['TITLE_ONLY']
     )
 
     optimizer = AdamW(model.parameters(), lr=CONFIG['LR'])

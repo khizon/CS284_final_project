@@ -44,6 +44,7 @@ def load_dataset(file_path):
 
     df = pd.concat([train_df, val_df, test_df])
     pd.concat([train_df, val_df, test_df])
+    df.fillna('', inplace=True)
     print(df.sample(5))
     return df
 
@@ -51,21 +52,26 @@ def load_dataset(file_path):
 DataSet class
 '''
 class ReliableNewsDataset(Dataset):
-    def __init__(self, data, tokenizer, max_token_len = 128):
+    def __init__(self, data, tokenizer, max_token_len = 128, title_only=True):
         self.tokenizer = tokenizer
         self.data = data
         self.max_token_len = max_token_len
+        self.title_only = title_only
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
         data_row = self.data.iloc[index]
-        title = data_row.title
+        
+        text = data_row.title
+        if not self.title_only:
+            text = text + ' [SEP] ' + data_row.content
+            
         labels = data_row.label
 
         encoding = self.tokenizer.encode_plus(
-            title,
+            text,
             add_special_tokens=True,
             max_length = self.max_token_len,
             return_token_type_ids = False,
@@ -76,20 +82,20 @@ class ReliableNewsDataset(Dataset):
         )
 
         return dict(
-            title = title,
+            text = text,
             input_ids = encoding['input_ids'].flatten(),
             attention_mask = encoding['attention_mask'].flatten(),
             labels = torch.tensor(labels, dtype=torch.float32)
         )
 
-def create_reliable_news_dataloader(file_path, tokenizer, max_len=128, batch_size=8, shuffle=False, sample = None):
+def create_reliable_news_dataloader(file_path, tokenizer, max_len=128, batch_size=8, shuffle=False, sample = None, title_only = True):
     df = jsonl_to_df(file_path)
     
     # Load only a partial dataset
     if sample:
         df = df.sample(sample)
     
-    ds = ReliableNewsDataset(df, tokenizer, max_token_len = max_len)
+    ds = ReliableNewsDataset(df, tokenizer, max_token_len = max_len, title_only = title_only)
     return DataLoader(ds, batch_size = batch_size, shuffle=shuffle)
 
 '''

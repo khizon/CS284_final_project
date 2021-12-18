@@ -1,6 +1,10 @@
 import os
 import torch
-
+'''
+Config settings for the experiments
+To use the whole dataset: SAMPLE = None
+To use the concatenated title + content: TITLE_ONLY = False
+'''
 CONFIG = {
         'FILE_PATH': os.path.join('data', 'nela_gt_2018_site_split'),
         'MODEL_NAME': 'bert-base-cased',
@@ -11,5 +15,6 @@ CONFIG = {
         'EPOCHS': 10,
         'LR': 2e-5,
         'WARMUP': 0.1,
-        'SAMPLE': 16
+        'SAMPLE': 16,
+        'TITLE_ONLY': True
     }
