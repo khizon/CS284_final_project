@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, BertModel, AdamW, get_linear_schedule_with_warmup
+from transformers import AutoTokenizer, DistilBertTokenizer, DistilBertModel, BertModel, AdamW, get_linear_schedule_with_warmup
 
 import pandas as pd
 import numpy as np
@@ -19,7 +19,11 @@ if __name__ == '__main__':
 
     _ = torch.manual_seed(42)
 
-    tokenizer = AutoTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
+    if CONFIG['MODEL_NAME'] == 'bert-base-cased':
+        tokenizer = AutoTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
+    else:
+        tokenizer = DistilBertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
+
     model = ReliableNewsClassifier(CONFIG['MODEL_NAME'])
     model.to(CONFIG['DEVICE'])
 

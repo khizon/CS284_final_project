@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, BertModel, AdamW, get_linear_schedule_with_warmup
+from transformers import AutoTokenizer, DistilBertTokenizer, DistilBertModel, BertModel, AdamW, get_linear_schedule_with_warmup
 
 import pandas as pd
 import numpy as np
@@ -106,7 +106,10 @@ Model Class
 class ReliableNewsClassifier(nn.Module):
     def __init__(self, model_name):
         super(ReliableNewsClassifier, self).__init__()
-        self.bert = BertModel.from_pretrained(model_name)
+        if model_name == 'bert-base-cased':
+            self.bert = BertModel.from_pretrained(model_name)
+        else:
+            self.bert = DistilBertModel.from_pretrained(model_name)
         self.drop = nn.Dropout(p=0.1)
         self.classifier = nn.Linear(self.bert.config.hidden_size, 1)
 
