@@ -28,6 +28,8 @@ if __name__ == '__main__':
     train_data_loader = create_reliable_news_dataloader(
         os.path.join(CONFIG['FILE_PATH'], 'train.jsonl'),
         tokenizer,
+        max_len = CONFIG['MAX_LEN'],
+        batch_size = CONFIG['BATCH_SIZE'],
         shuffle=True,
         sample = CONFIG['SAMPLE'],
         title_only = CONFIG['TITLE_ONLY']
@@ -36,6 +38,8 @@ if __name__ == '__main__':
     val_data_loader = create_reliable_news_dataloader(
         os.path.join(CONFIG['FILE_PATH'], 'val.jsonl'),
         tokenizer,
+        max_len = CONFIG['MAX_LEN'],
+        batch_size = CONFIG['BATCH_SIZE'],
         sample = CONFIG['SAMPLE'],
         title_only = CONFIG['TITLE_ONLY']
     )
@@ -56,7 +60,7 @@ if __name__ == '__main__':
     early_stopping = EarlyStopping(patience = 3)
 
     for epoch in range(CONFIG['EPOCHS']):
-        print(f'Training: {epoch + 1}/{CONFIG["EPOCHS"]}------')
+        print(f'Training: {epoch + 1}/{CONFIG["EPOCHS"]} ------')
 
         train_acc, train_loss = train_epoch(
             model, train_data_loader, criterion, optimizer, 

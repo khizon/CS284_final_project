@@ -25,6 +25,7 @@ if __name__ == '__main__':
     test_data_loader = create_reliable_news_dataloader(
         os.path.join(CONFIG['FILE_PATH'], 'test.jsonl'),
         tokenizer,
+        max_len = CONFIG['MAX_LEN'],
         sample = CONFIG['SAMPLE'],
         title_only = CONFIG['TITLE_ONLY']
     )

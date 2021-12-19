@@ -89,6 +89,8 @@ class ReliableNewsDataset(Dataset):
         )
 
 def create_reliable_news_dataloader(file_path, tokenizer, max_len=128, batch_size=8, shuffle=False, sample = None, title_only = True):
+
+    print(f'Max token length: {max_len} Batch size: {batch_size} Shuffle: {shuffle} Title only: {title_only}')
     df = jsonl_to_df(file_path)
     
     # Load only a partial dataset
