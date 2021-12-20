@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     if CONFIG['MODEL_NAME'] == 'bert-base-cased':
         tokenizer = AutoTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
-    else:
+    elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
         tokenizer = DistilBertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
 
     model = ReliableNewsClassifier(CONFIG['MODEL_NAME'])

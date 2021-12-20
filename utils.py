@@ -106,16 +106,24 @@ Model Class
 class ReliableNewsClassifier(nn.Module):
     def __init__(self, model_name):
         super(ReliableNewsClassifier, self).__init__()
+        self.model_name = model_name
+
         if model_name == 'bert-base-cased':
-            self.bert = BertModel.from_pretrained(model_name)
-        else:
-            self.bert = DistilBertModel.from_pretrained(model_name)
-        self.drop = nn.Dropout(p=0.1)
+            self.bert = BertModel.from_pretrained(self.model_name)
+        elif model_name == 'distilbert-base-cased':
+            self.bert = DistilBertModel.from_pretrained(self.model_name)
+
+        self.drop = nn.Dropout(p = CONFIG['DROPOUT'])
         self.classifier = nn.Linear(self.bert.config.hidden_size, 1)
 
     def forward(self, input_ids, attention_mask):
         x = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-        x = self.drop(x.pooler_output)
+
+        if self.model_name == 'bert-base-cased':
+            x = self.drop(x.pooler_output)
+        elif self.model_name == 'distilbert-base-cased':
+            x = self.drop(x.last_hidden_state[:,0])
+
         return self.classifier(x)
 
 '''
