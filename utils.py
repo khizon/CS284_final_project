@@ -65,7 +65,7 @@ class ReliableNewsDataset(Dataset):
         data_row = self.data.iloc[index]
         
         labels = data_row.label
-        if title_only:
+        if self.title_only:
             encoding = self.tokenizer.encode_plus(
                 data_row.title,
                 add_special_tokens=True,
@@ -290,7 +290,7 @@ def get_predictions(model, data_loader):
             texts = d["text"]
             input_ids = d["input_ids"].to(CONFIG['DEVICE'])
             attention_mask = d["attention_mask"].to(CONFIG['DEVICE'])
-            token_type_ids = d['token_type_ids'].to(device)
+            token_type_ids = d['token_type_ids'].to(CONFIG['DEVICE'])
             targets = d["labels"].to(CONFIG['DEVICE'])
 
             outputs = model(

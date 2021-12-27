@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
-from transformers import AutoTokenizer, DistilbertTokenizer, DistilBertModel, BertModel, AdamW, get_linear_schedule_with_warmup
+from transformers import AutoTokenizer, DistilBertTokenizer, DistilBertModel, BertModel, AdamW, get_linear_schedule_with_warmup
 
 import pandas as pd
 import numpy as np

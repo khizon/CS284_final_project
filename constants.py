@@ -15,10 +15,10 @@ CONFIG = {
         'EPOCHS': 10,
         'LR': 2e-5,
         'WARMUP': 0.1,
-        'SAMPLE': None,
+        'SAMPLE': 40,
         'TITLE_ONLY': False,
         'DROPOUT': 0.2,
-        'PATIENCE': 10
+        'PATIENCE': 3
     }
 
 DISTILL_CONFIG = {
