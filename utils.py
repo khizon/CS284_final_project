@@ -64,27 +64,36 @@ class ReliableNewsDataset(Dataset):
     def __getitem__(self, index):
         data_row = self.data.iloc[index]
         
-        text = data_row.title
-        if not self.title_only:
-            text = text + ' [SEP] ' + data_row.content
-            
         labels = data_row.label
-
-        encoding = self.tokenizer.encode_plus(
-            text,
-            add_special_tokens=True,
-            max_length = self.max_token_len,
-            return_token_type_ids = False,
-            padding = 'max_length',
-            truncation = True,
-            return_attention_mask = True,
-            return_tensors = 'pt'
-        )
+        if title_only:
+            encoding = self.tokenizer.encode_plus(
+                data_row.title,
+                add_special_tokens=True,
+                max_length = self.max_token_len,
+                return_token_type_ids = True,
+                padding = 'max_length',
+                truncation = True,
+                return_attention_mask = True,
+                return_tensors = 'pt'
+            )
+        else:
+            encoding = self.tokenizer.encode_plus(
+                data_row.title,
+                data_row.content,
+                add_special_tokens=True,
+                max_length = self.max_token_len,
+                return_token_type_ids = True,
+                padding = 'max_length',
+                truncation = True,
+                return_attention_mask = True,
+                return_tensors = 'pt'
+            )
 
         return dict(
-            text = text,
+            text = data_row.title + ' ' + data_row.content,
             input_ids = encoding['input_ids'].flatten(),
             attention_mask = encoding['attention_mask'].flatten(),
+            token_type_ids = encoding['token_type_ids'].flatten(),
             labels = torch.tensor(labels, dtype=torch.float32)
         )
 
@@ -116,8 +125,8 @@ class ReliableNewsClassifier(nn.Module):
         self.drop = nn.Dropout(p = CONFIG['DROPOUT'])
         self.classifier = nn.Linear(self.bert.config.hidden_size, 1)
 
-    def forward(self, input_ids, attention_mask):
-        x = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+    def forward(self, input_ids, attention_mask, token_type_ids):
+        x = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids = token_type_ids)
 
         if self.model_name == 'bert-base-cased':
             x = self.drop(x.pooler_output)
@@ -139,9 +148,10 @@ def train_epoch(model, data_loader, criterion, optimizer, device, scheduler):
     for idx, batch in enumerate(loop):
         input_ids = batch['input_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
+        token_type_ids = batch['token_type_ids'].to(device)
         labels = batch['labels'].to(device).unsqueeze(1)
 
-        outputs = model(input_ids = input_ids, attention_mask = attention_mask)
+        outputs = model(input_ids = input_ids, attention_mask = attention_mask, token_type_ids = token_type_ids)
 
         preds = torch.round(torch.sigmoid(outputs))
         loss = criterion(outputs, labels)
@@ -241,11 +251,13 @@ def eval_model(model, data_loader, criterion, device):
         for idx, batch in enumerate(loop):
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
+            token_type_ids = batch['token_type_ids'].to(device)
             labels = batch["labels"].to(device).unsqueeze(1)
 
             outputs = model(
-                input_ids=input_ids,
-                attention_mask=attention_mask
+                input_ids = input_ids,
+                attention_mask = attention_mask,
+                token_type_ids = token_type_ids
             )
             preds = torch.round(torch.sigmoid(outputs))
 
@@ -278,11 +290,13 @@ def get_predictions(model, data_loader):
             texts = d["text"]
             input_ids = d["input_ids"].to(CONFIG['DEVICE'])
             attention_mask = d["attention_mask"].to(CONFIG['DEVICE'])
+            token_type_ids = d['token_type_ids'].to(device)
             targets = d["labels"].to(CONFIG['DEVICE'])
 
             outputs = model(
-                input_ids=input_ids,
-                attention_mask=attention_mask
+                input_ids = input_ids,
+                attention_mask = attention_mask,
+                token_type_ids = token_type_ids
             )
             preds = torch.round(torch.sigmoid(outputs))
 
