@@ -20,3 +20,20 @@ CONFIG = {
         'DROPOUT': 0.2,
         'PATIENCE': 10
     }
+
+DISTILL_CONFIG = {
+        'PRED_DISTILL' : True,
+        'FILE_PATH' : os.path.join('data', 'nela_gt_2018_site_split'),
+        'DEVICE' : torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
+        'SEED' : 86,
+        'OUTPUT_DIR': '',
+        'MAX_LEN' : 512,
+        'EPOCHS' : 10,
+        'BATCH_SIZE' : 8,
+        'SAMPLE' : None,
+        'TITLE_ONLY' : False,
+        'STUDENT_MODEL' : '',
+        'LR' : 2E-5,
+        'WARMUP' : 0.1,
+        'TEMP' : 1
+}
