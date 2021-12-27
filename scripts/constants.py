@@ -18,7 +18,7 @@ CONFIG = {
         'SAMPLE': 40,
         'TITLE_ONLY': False,
         'DROPOUT': 0.2,
-        'PATIENCE': 3
+        'PATIENCE': 1
     }
 
 DISTILL_CONFIG = {

@@ -91,7 +91,10 @@ if __name__ == '__main__':
             torch.save(checkpoint, 'best_' + CONFIG['MODEL_NAME'] + '_state.bin')
             best_accuracy = val_acc
         
-        torch.save(history, os.path.join('results', 'BERT-title-only', 'train_history.bin'))
+        if not os.path.exists(os.path.join('results')):
+            os.makedirs(os.path.join('results'))
+        
+        torch.save(history, os.path.join('results','train_history.bin'))
         #Stop training when accuracy plateus.
         early_stopping(val_acc)
         if early_stopping.early_stop:

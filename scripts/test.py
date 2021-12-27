@@ -45,4 +45,8 @@ if __name__ == '__main__':
         'predictions': y_pred,
         'labels': y_test
     }
-    torch.save(test_results, os.path.join('results', 'BERT-title-only', 'test_results.bin'))
+    
+    if not os.path.exists(os.path.join('results')):
+            os.makedirs(os.path.join('results'))
+
+    torch.save(test_results, os.path.join('results', 'test_results.bin'))
