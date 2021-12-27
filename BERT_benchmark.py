@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
     history = defaultdict(list)
     best_accuracy = 0
-    early_stopping = EarlyStopping(patience = 3)
+    early_stopping = EarlyStopping(patience = CONFIG['PATIENCE'])
 
     for epoch in range(CONFIG['EPOCHS']):
         print(f'Training: {epoch + 1}/{CONFIG["EPOCHS"]} ------')
