@@ -8,7 +8,7 @@ from transformers import AutoTokenizer, DistilBertTokenizer, DistilBertModel, Be
 
 import pandas as pd
 import numpy as np
-# from sklearn.metrics import classification_report, confusion_matrix
+import json
 
 from collections import defaultdict
 
@@ -56,6 +56,12 @@ if __name__ == '__main__':
         num_warmup_steps = int(total_steps * CONFIG['WARMUP']),
         num_training_steps = total_steps
     )
+    
+    if not os.path.exists(os.path.join('checkpoint')):
+                os.makedirs(os.path.join('checkpoint')
+            
+    with open(os.path.join('checkpoint', 'config.json'), 'w', encoding='utf-8') as f:
+        json.dump(model.config.to_dict(), f, ensure_ascii=False, indent=4)
 
     # Training Loop
 
@@ -88,7 +94,9 @@ if __name__ == '__main__':
                 'accuracy': val_acc,
                 'epoch': epoch
             }
-            torch.save(checkpoint, 'best_' + CONFIG['MODEL_NAME'] + '_state.bin')
+            
+            
+            torch.save(checkpoint, os.path.join('checkpoint', 'pytorch_checkpoint.bin'))
             best_accuracy = val_acc
         
         if not os.path.exists(os.path.join('results')):
