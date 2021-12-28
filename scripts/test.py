@@ -37,11 +37,10 @@ if __name__ == '__main__':
     checkpoint = torch.load('best_' + CONFIG['MODEL_NAME'] + '_state.bin', map_location=torch.device(CONFIG['DEVICE']))
     model.load_state_dict(checkpoint['state_dict'])
 
-    y_titles, y_pred, y_test = get_predictions(model, test_data_loader)
+    y_pred, y_test = get_predictions(model, test_data_loader)
 
     # print(classification_report(y_test, y_pred))
     test_results = {
-        'titles': y_titles,
         'predictions': y_pred,
         'labels': y_test
     }

@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 # from sklearn.metrics import classification_report, confusion_matrix
 
-from scripts.constants import *
+from constants import *
 
 '''
 Convert jsonl files to pandas dataset
@@ -90,7 +90,7 @@ class ReliableNewsDataset(Dataset):
             )
 
         return dict(
-            text = data_row.title + ' ' + data_row.content,
+            # text = data_row.title + ' ' + data_row.content,
             input_ids = encoding['input_ids'].flatten(),
             attention_mask = encoding['attention_mask'].flatten(),
             token_type_ids = encoding['token_type_ids'].flatten(),
@@ -151,10 +151,13 @@ def train_epoch(model, data_loader, criterion, optimizer, device, scheduler):
         token_type_ids = batch['token_type_ids'].to(device)
         labels = batch['labels'].to(device).unsqueeze(1)
 
-        outputs = model(input_ids = input_ids, attention_mask = attention_mask, token_type_ids = token_type_ids)
+        outputs = model(input_ids = input_ids,
+                        attention_mask = attention_mask,
+                        token_type_ids = token_type_ids,
+                        labels = labels)
 
-        preds = torch.round(torch.sigmoid(outputs))
-        loss = criterion(outputs, labels)
+        preds = torch.round(outputs['logits'])
+        loss = outputs['loss']
 
         correct_predictions += (preds == labels).sum().item()
         n_examples += len(labels)
@@ -254,16 +257,14 @@ def eval_model(model, data_loader, criterion, device):
             token_type_ids = batch['token_type_ids'].to(device)
             labels = batch["labels"].to(device).unsqueeze(1)
 
-            outputs = model(
-                input_ids = input_ids,
-                attention_mask = attention_mask,
-                token_type_ids = token_type_ids
-            )
-            preds = torch.round(torch.sigmoid(outputs))
+            outputs = model(input_ids = input_ids,
+                        attention_mask = attention_mask,
+                        token_type_ids = token_type_ids,
+                        labels = labels)
 
-            loss = criterion(outputs, labels)
+            preds = torch.round(outputs['logits'])
+            loss = outputs['loss']
 
-            # correct_predictions += torch.sum(preds == labels.unsqueeze(1))
             correct_predictions += (preds == labels).sum().item()
             n_examples += len(labels)
             losses.append(loss.item())
@@ -285,28 +286,26 @@ def get_predictions(model, data_loader):
 
     with torch.no_grad():
         loop = tqdm(data_loader)
-        for idx, d in enumerate(loop):
+        for idx, batch in enumerate(loop):
 
-            texts = d["text"]
-            input_ids = d["input_ids"].to(CONFIG['DEVICE'])
-            attention_mask = d["attention_mask"].to(CONFIG['DEVICE'])
-            token_type_ids = d['token_type_ids'].to(CONFIG['DEVICE'])
-            targets = d["labels"].to(CONFIG['DEVICE'])
+            input_ids = batch["input_ids"].to(CONFIG['DEVICE'])
+            attention_mask = batch["attention_mask"].to(CONFIG['DEVICE'])
+            token_type_ids = batch['token_type_ids'].to(CONFIG['DEVICE'])
+            labels = batch["labels"].to(CONFIG['DEVICE']).unsqueeze(1)
 
-            outputs = model(
-                input_ids = input_ids,
-                attention_mask = attention_mask,
-                token_type_ids = token_type_ids
-            )
-            preds = torch.round(torch.sigmoid(outputs))
+            outputs = model(input_ids = input_ids,
+                        attention_mask = attention_mask,
+                        token_type_ids = token_type_ids,
+                        labels = labels)
 
-            review_texts.extend(texts)
+            preds = torch.round(outputs['logits'])
+
             predictions.extend(preds)
-            real_values.extend(targets)
+            real_values.extend(labels)
 
     predictions = torch.stack(predictions).cpu()
     real_values = torch.stack(real_values).cpu()
-    return review_texts, predictions, real_values
+    return predictions, real_values
 
 '''
 Early Stopping
