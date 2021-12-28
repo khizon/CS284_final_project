@@ -10,7 +10,8 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 
 import pandas as pd
 import numpy as np
-import json
+import pickle
+import shutil
 
 from collections import defaultdict
 
@@ -100,15 +101,19 @@ if __name__ == '__main__':
                 'epoch': epoch
             }
             
-            
-            torch.save(checkpoint, os.path.join('checkpoint', 'pytorch_checkpoint.pth.tar'))
+            model.save_pretrained(os.path.join('checkpoint'))
             best_accuracy = val_acc
         
         if not os.path.exists(os.path.join('results')):
             os.makedirs(os.path.join('results'))
         
-        torch.save(history, os.path.join('results','train_history.pth.tar'))
+        # torch.save(history, os.path.join('results','train_history.pth.tar'))
+        with open(os.path.join('results', 'train_history.pickle'), 'wb') as f:
+                pickle.dump(history, f)
+                
         #Stop training when accuracy plateus.
         early_stopping(val_acc)
         if early_stopping.early_stop:
             break
+            
+    shutil.make_archive('checkpoint', 'zip', os.path.join('checkpoint'))

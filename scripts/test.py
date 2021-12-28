@@ -10,6 +10,7 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 
 import pandas as pd
 import numpy as np
+import pickle
 # from sklearn.metrics import classification_report, confusion_matrix
 
 from collections import defaultdict
@@ -23,16 +24,11 @@ if __name__ == '__main__':
 
     if CONFIG['MODEL_NAME'] == 'bert-base-cased':
         tokenizer = BertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
-        config = BertConfig.from_pretrained(CONFIG['MODEL_NAME'])
-        config.num_labels = 1
-        model = BertForSequenceClassification(config)
+        model = BertForSequenceClassification.from_pretrained(os.path.join('checkpoint'))
     elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
         tokenizer = DistilBertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
-        config = DistilBertConfig.from_pretrained(CONFIG['MODEL_NAME'])
-        config.num_labels = 1
-        model = DistilBertForSequenceClassification(config)
+        model = DistilBertForSequenceClassification.from_pretrained(os.path.join('checkpoint'))
         
-    model.to(CONFIG['DEVICE'])
 
     test_data_loader = create_reliable_news_dataloader(
         os.path.join(CONFIG['FILE_PATH'], 'test.jsonl'),
@@ -41,9 +37,8 @@ if __name__ == '__main__':
         sample = CONFIG['SAMPLE'],
         title_only = CONFIG['TITLE_ONLY']
     )
-
-    checkpoint = torch.load(os.path.join('checkpoint', 'test.pth.tar'), map_location=torch.device(CONFIG['DEVICE']))
-    model.load_state_dict(checkpoint['state_dict'])
+    
+    model.to(CONFIG['DEVICE'])
 
     y_pred, y_test = get_predictions(model, test_data_loader)
 
@@ -56,4 +51,6 @@ if __name__ == '__main__':
     if not os.path.exists(os.path.join('results')):
             os.makedirs(os.path.join('results'))
 
-    torch.save(test_results, os.path.join('results', 'test_results.bin'))
+    # torch.save(test_results, os.path.join('results', 'test_results.bin'))
+    with open(os.path.join('results', 'test_results.pickle'), 'wb') as f:
+                pickle.dump(test_results, f)
