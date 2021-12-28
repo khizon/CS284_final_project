@@ -24,10 +24,14 @@ if __name__ == '__main__':
 
     if CONFIG['MODEL_NAME'] == 'bert-base-cased':
         tokenizer = BertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
-        model = BertForSequenceClassification.from_pretrained(os.path.join('checkpoint'))
+        config = BertConfig.from_pretrained(CONFIG['MODEL_NAME'])
+        config.num_labels = 1
+        model = BertForSequenceClassification(config)
     elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
         tokenizer = DistilBertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
-        model = DistilBertForSequenceClassification.from_pretrained(os.path.join('checkpoint'))
+        config = DistilBertConfig.from_pretrained(CONFIG['MODEL_NAME'])
+        config.num_labels = 1
+        model = DistilBertForSequenceClassification(config)
         
 
     test_data_loader = create_reliable_news_dataloader(
@@ -38,6 +42,8 @@ if __name__ == '__main__':
         title_only = CONFIG['TITLE_ONLY']
     )
     
+    checkpoint = torch.load(os.path.join('checkpoint', 'torch_checkpoint.pth'))
+    model.load_state_dict(checkpoint['state_dict'])
     model.to(CONFIG['DEVICE'])
 
     y_pred, y_test = get_predictions(model, test_data_loader)

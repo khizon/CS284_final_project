@@ -101,7 +101,8 @@ if __name__ == '__main__':
                 'epoch': epoch
             }
             
-            model.save_pretrained(os.path.join('checkpoint'))
+            # model.save_pretrained(os.path.join('checkpoint'))
+            torch.save(checkpoint, os.path.join('checkpoint', 'torch_checkpoint.pth.tar'))
             best_accuracy = val_acc
         
         if not os.path.exists(os.path.join('results')):
