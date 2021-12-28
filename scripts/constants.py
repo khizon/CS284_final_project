@@ -15,8 +15,8 @@ CONFIG = {
         'EPOCHS': 10,
         'LR': 2e-5,
         'WARMUP': 0.1,
-        'SAMPLE': 40,
-        'TITLE_ONLY': False,
+        'SAMPLE': 16,
+        'TITLE_ONLY': True,
         'DROPOUT': 0.2,
         'PATIENCE': 1
     }

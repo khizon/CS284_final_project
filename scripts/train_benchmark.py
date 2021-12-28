@@ -4,7 +4,9 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
-from transformers import AutoTokenizer, DistilBertTokenizer, DistilBertModel, BertModel, AdamW, get_linear_schedule_with_warmup
+from transformers import BertConfig, BertTokenizer, BertForSequenceClassification
+from transformers import DistilBertConfig, DistilBertTokenizer, DistilBertForSequenceClassification
+from transformers import AdamW, get_linear_schedule_with_warmup
 
 import pandas as pd
 import numpy as np
@@ -20,14 +22,17 @@ if __name__ == '__main__':
     _ = torch.manual_seed(42)
 
     if CONFIG['MODEL_NAME'] == 'bert-base-cased':
-        tokenizer = AutoTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
+        tokenizer = BertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
+        config = BertConfig.from_pretrained(CONFIG['MODEL_NAME'])
+        config.num_labels = 1
+        model = BertForSequenceClassification(config)
     elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
         tokenizer = DistilBertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
+        config = DistilBertConfig.from_pretrained(CONFIG['MODEL_NAME'])
+        config.num_labels = 1
+        model = DistilBertForSequenceClassification(config)
 
-    model = ReliableNewsClassifier(CONFIG['MODEL_NAME'])
     model.to(CONFIG['DEVICE'])
-
-    criterion = nn.BCEWithLogitsLoss().to(CONFIG['DEVICE'])
 
     train_data_loader = create_reliable_news_dataloader(
         os.path.join(CONFIG['FILE_PATH'], 'train.jsonl'),
@@ -58,7 +63,7 @@ if __name__ == '__main__':
     )
     
     if not os.path.exists(os.path.join('checkpoint')):
-                os.makedirs(os.path.join('checkpoint')
+                os.makedirs(os.path.join('checkpoint'))
             
     with open(os.path.join('checkpoint', 'config.json'), 'w', encoding='utf-8') as f:
         json.dump(model.config.to_dict(), f, ensure_ascii=False, indent=4)
@@ -73,11 +78,11 @@ if __name__ == '__main__':
         print(f'Training: {epoch + 1}/{CONFIG["EPOCHS"]} ------')
 
         train_acc, train_loss = train_epoch(
-            model, train_data_loader, criterion, optimizer, 
+            model, train_data_loader, optimizer, 
             CONFIG['DEVICE'], scheduler
             )
 
-        val_acc, val_loss = eval_model(model, val_data_loader, criterion, CONFIG['DEVICE'])
+        val_acc, val_loss = eval_model(model, val_data_loader, CONFIG['DEVICE'])
 
         history['train_acc'].append(train_acc)
         history['train_loss'].append(train_loss)
@@ -96,13 +101,13 @@ if __name__ == '__main__':
             }
             
             
-            torch.save(checkpoint, os.path.join('checkpoint', 'pytorch_checkpoint.bin'))
+            torch.save(checkpoint, os.path.join('checkpoint', 'pytorch_checkpoint.pth.tar'))
             best_accuracy = val_acc
         
         if not os.path.exists(os.path.join('results')):
             os.makedirs(os.path.join('results'))
         
-        torch.save(history, os.path.join('results','train_history.bin'))
+        torch.save(history, os.path.join('results','train_history.pth.tar'))
         #Stop training when accuracy plateus.
         early_stopping(val_acc)
         if early_stopping.early_stop:

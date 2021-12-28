@@ -4,7 +4,9 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
-from transformers import AutoTokenizer, DistilBertTokenizer, DistilBertModel, BertModel, AdamW, get_linear_schedule_with_warmup
+from transformers import BertConfig, BertTokenizer, BertForSequenceClassification
+from transformers import DistilBertConfig, DistilBertTokenizer, DistilBertForSequenceClassification
+from transformers import AdamW, get_linear_schedule_with_warmup
 
 import pandas as pd
 import numpy as np
@@ -14,16 +16,22 @@ from collections import defaultdict
 
 from utils import *
 from constants import *
+import os
 
 
 if __name__ == '__main__':
 
     if CONFIG['MODEL_NAME'] == 'bert-base-cased':
-        tokenizer = AutoTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
+        tokenizer = BertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
+        config = BertConfig.from_pretrained(CONFIG['MODEL_NAME'])
+        config.num_labels = 1
+        model = BertForSequenceClassification(config)
     elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
         tokenizer = DistilBertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
-
-    model = ReliableNewsClassifier(CONFIG['MODEL_NAME'])
+        config = DistilBertConfig.from_pretrained(CONFIG['MODEL_NAME'])
+        config.num_labels = 1
+        model = DistilBertForSequenceClassification(config)
+        
     model.to(CONFIG['DEVICE'])
 
     test_data_loader = create_reliable_news_dataloader(
@@ -34,7 +42,7 @@ if __name__ == '__main__':
         title_only = CONFIG['TITLE_ONLY']
     )
 
-    checkpoint = torch.load('best_' + CONFIG['MODEL_NAME'] + '_state.bin', map_location=torch.device(CONFIG['DEVICE']))
+    checkpoint = torch.load(os.path.join('checkpoint', 'test.pth.tar'), map_location=torch.device(CONFIG['DEVICE']))
     model.load_state_dict(checkpoint['state_dict'])
 
     y_pred, y_test = get_predictions(model, test_data_loader)

@@ -8,7 +8,9 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
-from transformers import AutoTokenizer, DistilBertTokenizer, DistilBertModel, BertModel, AdamW, get_linear_schedule_with_warmup
+from transformers import BertConfig, BertTokenizer, BertForSequenceClassification
+from transformers import DistilBertConfig, DistilBertTokenizer, DistilBertForSequenceClassification
+from transformers import AdamW, get_linear_schedule_with_warmup
 
 import pandas as pd
 import numpy as np
@@ -110,35 +112,9 @@ def create_reliable_news_dataloader(file_path, tokenizer, max_len=128, batch_siz
     return DataLoader(ds, batch_size = batch_size, shuffle=shuffle)
 
 '''
-Model Class
-'''
-class ReliableNewsClassifier(nn.Module):
-    def __init__(self, model_name):
-        super(ReliableNewsClassifier, self).__init__()
-        self.model_name = model_name
-
-        if model_name == 'bert-base-cased':
-            self.bert = BertModel.from_pretrained(self.model_name)
-        elif model_name == 'distilbert-base-cased':
-            self.bert = DistilBertModel.from_pretrained(self.model_name)
-
-        self.drop = nn.Dropout(p = CONFIG['DROPOUT'])
-        self.classifier = nn.Linear(self.bert.config.hidden_size, 1)
-
-    def forward(self, input_ids, attention_mask, token_type_ids):
-        x = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids = token_type_ids)
-
-        if self.model_name == 'bert-base-cased':
-            x = self.drop(x.pooler_output)
-        elif self.model_name == 'distilbert-base-cased':
-            x = self.drop(x.last_hidden_state[:,0])
-
-        return self.classifier(x)
-
-'''
 Train Function
 '''
-def train_epoch(model, data_loader, criterion, optimizer, device, scheduler):
+def train_epoch(model, data_loader, optimizer, device, scheduler):
     model = model.train()
     losses = []
     correct_predictions = 0
@@ -172,6 +148,7 @@ def train_epoch(model, data_loader, criterion, optimizer, device, scheduler):
         loop.set_postfix(train_loss = np.mean(losses), train_acc = float(correct_predictions/n_examples))
 
     return correct_predictions/n_examples, np.mean(losses)
+
 '''
 Distillation Training Function
 '''
@@ -242,7 +219,7 @@ def distill_train_epoch(student_model, teacher_model, train_dataloader, n_gpu):
 '''
 Evaluation Function
 '''
-def eval_model(model, data_loader, criterion, device):
+def eval_model(model, data_loader, device):
     model = model.eval()
 
     losses = []
