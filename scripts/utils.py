@@ -14,6 +14,7 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 
 import pandas as pd
 import numpy as np
+import wandb
 import time
 
 from constants import *
@@ -112,9 +113,26 @@ def create_reliable_news_dataloader(file_path, tokenizer, max_len=128, batch_siz
     return DataLoader(ds, batch_size = batch_size, shuffle=shuffle)
 
 '''
+Create Model
+'''
+def create_model(model_name, dropout):
+    if model_name == 'bert-base-cased':
+        tokenizer = BertTokenizer.from_pretrained(model_name)
+        config = BertConfig.from_pretrained(model_name)
+        config.dropout = dropout
+        config.num_labels = 1
+        model = BertForSequenceClassification(config)
+    elif model_name == 'distilbert-base-cased':
+        tokenizer = DistilBertTokenizer.from_pretrained(model_name)
+        config = DistilBertConfig.from_pretrained(model_name)
+        config.dropout = dropout
+        config.num_labels = 1
+        model = DistilBertForSequenceClassification(config)
+    return tokenizer, model
+'''
 Train Function
 '''
-def train_epoch(model, data_loader, optimizer, device, scheduler):
+def train_epoch(model, model_name, data_loader, optimizer, device, scheduler):
     model = model.train()
     losses = []
     correct_predictions = 0
@@ -127,12 +145,12 @@ def train_epoch(model, data_loader, optimizer, device, scheduler):
         token_type_ids = batch['token_type_ids'].to(device)
         labels = batch['labels'].to(device).unsqueeze(1)
         
-        if CONFIG['MODEL_NAME'] == 'bert-base-cased':
+        if model_name == 'bert-base-cased':
             outputs = model(input_ids = input_ids,
                             attention_mask = attention_mask,
                             token_type_ids = token_type_ids,
                             labels = labels)
-        elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
+        elif model_name == 'distilbert-base-cased':
             outputs = model(input_ids = input_ids,
                             attention_mask = attention_mask,
                             labels = labels)
@@ -157,74 +175,74 @@ def train_epoch(model, data_loader, optimizer, device, scheduler):
 '''
 Distillation Training Function
 '''
-def sof_cross_entropy(predicts, targets):
-    student_likelihood = torch.nn.functional.log_softmax(predicts, dim=-1)
-    targets_prob = torch.nn.functional.softmax(targets, dim=-1)
-    return (- targets_prob * student_likelihood).mean()
+# def sof_cross_entropy(predicts, targets):
+#     student_likelihood = torch.nn.functional.log_softmax(predicts, dim=-1)
+#     targets_prob = torch.nn.functional.softmax(targets, dim=-1)
+#     return (- targets_prob * student_likelihood).mean()
 
-def distill_train_epoch(student_model, teacher_model, train_dataloader, n_gpu):
-    for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration", ascii=True)):
-        batch = tuple(t.to(device) for t in batch)
+# def distill_train_epoch(student_model, teacher_model, train_dataloader, n_gpu):
+#     for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration", ascii=True)):
+#         batch = tuple(t.to(device) for t in batch)
 
-        input_ids, input_mask, label_ids = batch
-        if input_ids.size()[0] != DISTILL_CONFIG['BATCH_SIZE']:
-            continue
+#         input_ids, input_mask, label_ids = batch
+#         if input_ids.size()[0] != DISTILL_CONFIG['BATCH_SIZE']:
+#             continue
 
-        att_loss = 0.
-        rep_loss = 0.
-        cls_loss = 0.
+#         att_loss = 0.
+#         rep_loss = 0.
+#         cls_loss = 0.
 
-        student_logits, student_atts, student_reps = student_model(input_ids, segment_ids, input_mask, is_student=True)
+#         student_logits, student_atts, student_reps = student_model(input_ids, segment_ids, input_mask, is_student=True)
 
-        with torch.no_grad():
-            teacher_logits, teacher_atts, teacher_reps = teacher_model(input_ids, segment_ids, input_mask)
+#         with torch.no_grad():
+#             teacher_logits, teacher_atts, teacher_reps = teacher_model(input_ids, segment_ids, input_mask)
 
-        if not DISTILL_CONFIG['PRED_DISTILL']:
-            teacher_layer_num = len(teacher_atts)
-            student_layer_num = len(student_atts)
-            assert teacher_layer_num % student_layer_num == 0
-            layers_per_block = int(teacher_layer_num / student_layer_num)
-            new_teacher_atts = [teacher_atts[i * layers_per_block + layers_per_block - 1]
-                                for i in range(student_layer_num)]
+#         if not DISTILL_CONFIG['PRED_DISTILL']:
+#             teacher_layer_num = len(teacher_atts)
+#             student_layer_num = len(student_atts)
+#             assert teacher_layer_num % student_layer_num == 0
+#             layers_per_block = int(teacher_layer_num / student_layer_num)
+#             new_teacher_atts = [teacher_atts[i * layers_per_block + layers_per_block - 1]
+#                                 for i in range(student_layer_num)]
 
-            for student_att, teacher_att in zip(student_atts, new_teacher_atts):
-                student_att = torch.where(student_att <= -1e2, torch.zeros_like(student_att).to(device), student_att)
-                teacher_att = torch.where(teacher_att <= -1e2, torch.zeros_like(teacher_att).to(device), teacher_att)
+#             for student_att, teacher_att in zip(student_atts, new_teacher_atts):
+#                 student_att = torch.where(student_att <= -1e2, torch.zeros_like(student_att).to(device), student_att)
+#                 teacher_att = torch.where(teacher_att <= -1e2, torch.zeros_like(teacher_att).to(device), teacher_att)
 
-                tmp_loss = loss_mse(student_att, teacher_att)
-                att_loss += tmp_loss
+#                 tmp_loss = loss_mse(student_att, teacher_att)
+#                 att_loss += tmp_loss
 
-            new_teacher_reps = [teacher_reps[i * layers_per_block] for i in range(student_layer_num + 1)]
-            new_student_reps = student_reps
-            for student_rep, teacher_rep in zip(new_student_reps, new_teacher_reps):
-                tmp_loss = loss_mse(student_rep, teacher_rep)
-                rep_loss += tmp_loss
+#             new_teacher_reps = [teacher_reps[i * layers_per_block] for i in range(student_layer_num + 1)]
+#             new_student_reps = student_reps
+#             for student_rep, teacher_rep in zip(new_student_reps, new_teacher_reps):
+#                 tmp_loss = loss_mse(student_rep, teacher_rep)
+#                 rep_loss += tmp_loss
 
-            loss = rep_loss + att_loss
-            tr_att_loss += att_loss.item()
-            tr_rep_loss += rep_loss.item()
-        else:
-            cls_loss = soft_cross_entropy(student_logits / DISTILL_CONFIG['TEMP'], teacher_logits / DISTILL_CONFIG['TEMP'])
+#             loss = rep_loss + att_loss
+#             tr_att_loss += att_loss.item()
+#             tr_rep_loss += rep_loss.item()
+#         else:
+#             cls_loss = soft_cross_entropy(student_logits / DISTILL_CONFIG['TEMP'], teacher_logits / DISTILL_CONFIG['TEMP'])
 
-            loss = cls_loss
-            tr_cls_loss += cls_loss.item()
+#             loss = cls_loss
+#             tr_cls_loss += cls_loss.item()
 
-        if n_gpu > 1:
-            loss = loss.mean()  # mean() to average on multi-gpu.
+#         if n_gpu > 1:
+#             loss = loss.mean()  # mean() to average on multi-gpu.
 
-        loss.backward()
+#         loss.backward()
 
-        tr_loss += loss.item()
-        nb_tr_examples += label_ids.size(0)
-        nb_tr_steps += 1
+#         tr_loss += loss.item()
+#         nb_tr_examples += label_ids.size(0)
+#         nb_tr_steps += 1
 
-        optimizer.step()
-        optimizer.zero_grad()
-        global_step += 1
+#         optimizer.step()
+#         optimizer.zero_grad()
+#         global_step += 1
 '''
 Evaluation Function
 '''
-def eval_model(model, data_loader, device):
+def eval_model(model, model_name, data_loader, device):
     model = model.eval()
 
     losses = []
@@ -239,12 +257,12 @@ def eval_model(model, data_loader, device):
             token_type_ids = batch['token_type_ids'].to(device)
             labels = batch["labels"].to(device).unsqueeze(1)
 
-            if CONFIG['MODEL_NAME'] == 'bert-base-cased':
+            if model_name == 'bert-base-cased':
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
                                 token_type_ids = token_type_ids,
                                 labels = labels)
-            elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
+            elif model_name == 'distilbert-base-cased':
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
                                 labels = labels)
@@ -263,7 +281,7 @@ def eval_model(model, data_loader, device):
 '''
 Get Predictions
 '''
-def get_predictions(model, data_loader):
+def get_predictions(model, model_name, data_loader, device):
     model = model.eval()
     
     predictions = []
@@ -278,19 +296,19 @@ def get_predictions(model, data_loader):
         loop = tqdm(data_loader)
         for idx, batch in enumerate(loop):
 
-            input_ids = batch["input_ids"].to(CONFIG['DEVICE'])
-            attention_mask = batch["attention_mask"].to(CONFIG['DEVICE'])
-            token_type_ids = batch['token_type_ids'].to(CONFIG['DEVICE'])
-            labels = batch["labels"].to(CONFIG['DEVICE']).unsqueeze(1)
+            input_ids = batch["input_ids"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
+            token_type_ids = batch['token_type_ids'].to(device)
+            labels = batch["labels"].to(device).unsqueeze(1)
 
-            if CONFIG['MODEL_NAME'] == 'bert-base-cased':
+            if model_name == 'bert-base-cased':
                 start = time.perf_counter()
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
                                 token_type_ids = token_type_ids,
                                 labels = labels)
                 end = time.perf_counter()
-            elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
+            elif model_name == 'distilbert-base-cased':
                 start = time.perf_counter()
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,

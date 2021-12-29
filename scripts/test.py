@@ -19,70 +19,61 @@ from constants import *
 import os
 import wandb
 
-
-if __name__ == '__main__':
-    
+def test(config = None):
     user = FILES['USER']
     project = FILES['PROJECT']
     artifact_ver = f'{FILES["MODEL_NAME"]}:{FILES["VERSION"]}'
     model_path = f"{user}/{project}/{artifact_ver}"
-    
 
-    if CONFIG['MODEL_NAME'] == 'bert-base-cased':
-        tokenizer = BertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
-        config = BertConfig.from_pretrained(CONFIG['MODEL_NAME'])
-        config.num_labels = 1
-        model = BertForSequenceClassification(config)
-    elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
-        tokenizer = DistilBertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
-        config = DistilBertConfig.from_pretrained(CONFIG['MODEL_NAME'])
-        config.num_labels = 1
-        model = DistilBertForSequenceClassification(config)
-        
+    with wandb.init(config=config, project=FILES['PROJECT'], entity=FILES['USER']):
+        _ = torch.manual_seed(config.seed)
 
-    test_data_loader = create_reliable_news_dataloader(
-        os.path.join(CONFIG['FILE_PATH'], 'test.jsonl'),
-        tokenizer,
-        max_len = CONFIG['MAX_LEN'],
-        sample = CONFIG['SAMPLE'],
-        title_only = CONFIG['TITLE_ONLY']
-    )
-    
-    # Download Model From Artifacts WandB
-    run = wandb.init(project=project, entity=user)
-    wandb.watch(model, log='all')
-    
-    artifact = run.use_artifact(model_path, type='model')
-    artifact_dir = artifact.download()
-    
-    # Load Model From Artifacts
-    checkpoint = torch.load(os.path.join('artifacts', artifact_ver, 'torch_checkpoint.bin'))
-    model.load_state_dict(checkpoint['state_dict'])
-    model.to(CONFIG['DEVICE'])
+        # Initialize Tokenizer and Model
+        tokenizer, model = create_model(config.model_name, config.droput)
 
-    y_pred, y_test, test_acc, ave_time = get_predictions(model, test_data_loader)
-    
-    test_results = {
-        'predictions': y_pred,
-        'labels': y_test,
-        'test_acc' : test_acc,
-        'ave_time' : ave_time
-    }
-    
-    wandb.log({"test acc": test_acc,
-               "ave_time": ave_time
-              })
-    
-    if not os.path.exists(os.path.join('checkpoint')):
+        # Initialize test data set
+        test_data_loader = create_reliable_news_dataloader(
+            os.path.join(config.dataset_path, 'test.jsonl'),
+            tokenizer,
+            max_len = config.max_len,
+            sample = config.sample,
+            title_only = config.title_only
+        )
+
+        wandb.watch(model, log='all')
+        # Load Model From Artifacts
+        artifact = run.use_artifact(model_path, type='model')
+        artifact_dir = artifact.download()
+        checkpoint = torch.load(os.path.join('artifacts', artifact_ver, 'torch_checkpoint.bin'))
+        model.load_state_dict(checkpoint['state_dict'])
+        model.to(config.device)
+
+        y_pred, y_test, test_acc, ave_time = get_predictions(model, config.model_name, test_data_loader, config.device)
+
+        test_results = {
+            'predictions': y_pred,
+            'labels': y_test,
+            'test_acc' : test_acc,
+            'ave_time' : ave_time
+        }
+
+        wandb.log({
+            "test acc": test_acc,
+            "ave_time": ave_time
+        })
+
+        if not os.path.exists(os.path.join('checkpoint')):
             os.makedirs(os.path.join('checkpoint'))
 
-    with open(os.path.join('checkpoint', 'test_results.pickle'), 'wb') as f:
-                pickle.dump(test_results, f)
+        with open(os.path.join('checkpoint', 'test_results.pickle'), 'wb') as f:
+                    pickle.dump(test_results, f)
 
-    # Save model to weights and biases
-    artifact = wandb.Artifact('test_results', type='results')
-    artifact.add_file(os.path.join('checkpoint', 'test_results.pickle'))
-    run.log_artifact(artifact)
-    run.join()
-    run.finish()
-    wandb.finish()
+        # Save model to weights and biases
+        artifact = wandb.Artifact('test_results', type='results')
+        artifact.add_file(os.path.join('checkpoint', 'test_results.pickle'))
+        run.log_artifact(artifact)
+        run.join()
+        run.finish()
+
+if __name__ == '__main__':
+    wandb.agent(sweep_id, test, count=1)

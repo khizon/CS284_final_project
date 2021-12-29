@@ -19,113 +19,104 @@ from utils import *
 from constants import *
 import wandb
 
-if __name__ == '__main__':
+def train(config = None):
+    with wandb.init(config=config, project=FILES['PROJECT'], entity=FILES['USER']):
+        _ = torch.manual_seed(config.seed)
 
-    _ = torch.manual_seed(42)
-    
-    wandb.config = CONFIG
+        # Initialize Model
+        tokenizer, model = create_model(config.model_name, config.dropout)
+        model.to(config.device)
 
-    if CONFIG['MODEL_NAME'] == 'bert-base-cased':
-        tokenizer = BertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
-        config = BertConfig.from_pretrained(CONFIG['MODEL_NAME'])
-        config.dropout = CONFIG['DROPOUT']
-        config.num_labels = 1
-        model = BertForSequenceClassification(config)
-    elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
-        tokenizer = DistilBertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
-        config = DistilBertConfig.from_pretrained(CONFIG['MODEL_NAME'])
-        config.num_labels = 1
-        config.dropout = CONFIG['DROPOUT']
-        model = DistilBertForSequenceClassification(config)
+        # Initialize Train and Eval data set
+        train_data_loader = create_reliable_news_dataloader(
+            os.path.join(config.dataset_path, 'train.jsonl'),
+            tokenizer,
+            max_len = config.max_len,
+            batch_size = config.batch_size,
+            shuffle=True,
+            sample = config.sample,
+            title_only = config.title_only
+        )
 
-    model.to(CONFIG['DEVICE'])
+        val_data_loader = create_reliable_news_dataloader(
+            os.path.join(config.dataset_path, 'val.jsonl'),
+            tokenizer,
+            max_len = config.max_len,
+            batch_size = config.batch_size,
+            sample = config.sample,
+            title_only = config.title_only
+        )
 
-    train_data_loader = create_reliable_news_dataloader(
-        os.path.join(CONFIG['FILE_PATH'], 'train.jsonl'),
-        tokenizer,
-        max_len = CONFIG['MAX_LEN'],
-        batch_size = CONFIG['BATCH_SIZE'],
-        shuffle=True,
-        sample = CONFIG['SAMPLE'],
-        title_only = CONFIG['TITLE_ONLY']
-    )
+        # Optimizer and Scheduler
+        optimizer = AdamW(model.parameters(), lr = config.learning_rate)
+        total_steps = len(train_data_loader) * config.epochs
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps =  int(total_steps * config.warmup),
+            num_training_steps = total_steps
+        )
 
-    val_data_loader = create_reliable_news_dataloader(
-        os.path.join(CONFIG['FILE_PATH'], 'val.jsonl'),
-        tokenizer,
-        max_len = CONFIG['MAX_LEN'],
-        batch_size = CONFIG['BATCH_SIZE'],
-        sample = CONFIG['SAMPLE'],
-        title_only = CONFIG['TITLE_ONLY']
-    )
-
-    optimizer = AdamW(model.parameters(), lr=CONFIG['LR'])
-    total_steps = len(train_data_loader) * CONFIG['EPOCHS']
-
-    scheduler = get_linear_schedule_with_warmup(
-        optimizer,
-        num_warmup_steps = int(total_steps * CONFIG['WARMUP']),
-        num_training_steps = total_steps
-    )
-    
-    # Save model config
-    if not os.path.exists(os.path.join('checkpoint')):
+        # Save Model Config
+        if not os.path.exists(os.path.join('checkpoint')):
                 os.makedirs(os.path.join('checkpoint'))
             
-    with open(os.path.join('checkpoint', 'config.json'), 'w', encoding='utf-8') as f:
-        json.dump(model.config.to_dict(), f, ensure_ascii=False, indent=4)
+        with open(os.path.join('checkpoint', 'config.json'), 'w', encoding='utf-8') as f:
+            json.dump(model.config.to_dict(), f, ensure_ascii=False, indent=4)
 
-    # Training Loop
-    best_accuracy = 0
-    early_stopping = EarlyStopping(patience = CONFIG['PATIENCE'])
-    
-    # Weights and Biases Set up
-    run = wandb.init(project=FILES['PROJECT'], entity=FILES['USER'])
-    wandb.watch(model, log='all')
-    
-    for epoch in range(CONFIG['EPOCHS']):
-        print(f'Training: {epoch + 1}/{CONFIG["EPOCHS"]} ------')
+        # Initialize Early Stopping
+        best_accuracy = 0.0
+        early_stopping = EarlyStopping(patience = config.patience, min_delta = config.min_delta)
 
-        train_acc, train_loss = train_epoch(
-            model, train_data_loader, optimizer, 
-            CONFIG['DEVICE'], scheduler
+        # Training Loop
+        wandb.watch(model, log='all')
+        for epoch in range(config.epochs):
+            print(f'Training {epoch + 1}/{config.epochs}:')
+
+            train_acc, train_loss = train_epoch(
+                model, config.model_name, train_data_loader, optimizer, 
+                config.device, scheduler
             )
 
-        val_acc, val_loss = eval_model(model, val_data_loader, CONFIG['DEVICE'])
-        
-        wandb.log({"train loss": train_loss,
-                   "val loss": val_loss,
-                   "train acc": train_acc,
-                   "val acc": val_acc
-                  })
+            wandb.log({
+                "train acc": test_acc,
+                "train_loss": train_loss
+            })
 
-        # Check point best performing model
-        if val_acc > best_accuracy:
-            checkpoint = {
-                'state_dict' : model.state_dict(),
-                'optimizer' : optimizer.state_dict(),
-                'scheduler' : scheduler.state_dict(),
-                'loss' : val_loss,
-                'accuracy': val_acc,
-                'epoch': epoch
-            }
-            
-            # model.save_pretrained(os.path.join('checkpoint'))
-            torch.save(checkpoint, os.path.join('checkpoint', 'torch_checkpoint.bin'))
-            best_accuracy = val_acc
+            val_acc, val_loss = eval_model(model, config.model_name, val_data_loader, config.device)
+
+            wandb.log({
+                "val acc": val_acc,
+                "val_loss": val_loss
+            })
+
+            # Checkpoint Best Model
+            if val_acc > best_accuracy:
+                checkpoint = {
+                    'state_dict' : model.state_dict(),
+                    'optimizer' : optimizer.state_dict(),
+                    'scheduler' : scheduler.state_dict(),
+                    'loss' : val_loss,
+                    'accuracy': val_acc,
+                    'epoch': epoch
+                }
                 
-        #Stop training when accuracy plateus.
-        early_stopping(val_acc)
-        if early_stopping.early_stop:
-            break
-    
-    
-    # Save model to weights and biases
-    artifact = wandb.Artifact(FILES['MODEL_NAME'], type='model')
-    artifact.add_file(os.path.join('checkpoint', 'torch_checkpoint.bin'))
-    artifact.add_file(os.path.join('checkpoint', 'config.json'))
+                # model.save_pretrained(os.path.join('checkpoint'))
+                torch.save(checkpoint, os.path.join('checkpoint', 'torch_checkpoint.bin'))
+                best_accuracy = val_acc
+            
+            #Stop training when accuracy plateus.
+            early_stopping(val_acc)
+            if early_stopping.early_stop:
+                break
 
-    run.log_artifact(artifact)
-    run.join()
-    run.finish()
-    wandb.finish()
+        # Save model to weights and biases
+        artifact = wandb.Artifact(FILES['MODEL_NAME'], type='model')
+        artifact.add_file(os.path.join('checkpoint', 'torch_checkpoint.bin'))
+        artifact.add_file(os.path.join('checkpoint', 'config.json'))
+
+        run.log_artifact(artifact)
+        run.join()
+        run.finish()
+
+if __name__ == '__main__':
+    wandb.agent(sweep_id, train, count=2)
