@@ -20,12 +20,17 @@ from constants import *
 import wandb
 
 def train(config = None):
-    with wandb.init(config=config, project=FILES['PROJECT'], entity=FILES['USER']):
+    
+    with wandb.init(config=config, entity=FILES['USER']) as run:
+        config = wandb.config
+        
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         _ = torch.manual_seed(config.seed)
+        
 
         # Initialize Model
         tokenizer, model = create_model(config.model_name, config.dropout)
-        model.to(config.device)
+        model.to(device)
 
         # Initialize Train and Eval data set
         train_data_loader = create_reliable_news_dataloader(
@@ -74,19 +79,17 @@ def train(config = None):
 
             train_acc, train_loss = train_epoch(
                 model, config.model_name, train_data_loader, optimizer, 
-                config.device, scheduler
+                device, scheduler
             )
 
+            val_acc, val_loss = eval_model(model, config.model_name, val_data_loader, device)
+
             wandb.log({
-                "train acc": test_acc,
+                "train acc": train_acc,
                 "train_loss": train_loss
-            })
-
-            val_acc, val_loss = eval_model(model, config.model_name, val_data_loader, config.device)
-
-            wandb.log({
                 "val acc": val_acc,
-                "val_loss": val_loss
+                "val_loss": val_loss,
+                "epoch" : epoch
             })
 
             # Checkpoint Best Model
@@ -119,4 +122,5 @@ def train(config = None):
         run.finish()
 
 if __name__ == '__main__':
+    sweep_id = wandb.sweep(sweep_config, project = FILES['PROJECT'])
     wandb.agent(sweep_id, train, count=2)

@@ -1,6 +1,7 @@
 import os
 import torch
 import math
+
 '''
 Config settings for the experiments
 To use the whole dataset: SAMPLE = None
@@ -13,7 +14,7 @@ Change MODEL_NAME when using different settings
 FILES = {
         'PROJECT' : 'BERT-test',
         'MODEL_NAME' : 'BERT-title-only',
-        'VERSION' : 'v2',
+        'VERSION' : 'v6',
         'USER' : 'khizon',
     }
 
@@ -24,7 +25,7 @@ DISTILL_CONFIG = {
         'SEED' : 86,
         'OUTPUT_DIR': '',
         'MAX_LEN' : 512,
-        'EPOCHS' : 10,
+        'EPOCHS' : 5,
         'BATCH_SIZE' : 8,
         'SAMPLE' : None,
         'TITLE_ONLY' : False,
@@ -38,26 +39,28 @@ DISTILL_CONFIG = {
 sweep_config = {'method' : 'random'}
 
 # Hyperparameters with discrete (uniform sampling)
-parameters_dict = {
+parameter_dict = {
     'dropout' : {
         'values' : [0.1, 0.2, 0.3]
+    },
+    'batch_size': {
+        'values' : [8, 16, 32]
     }
 }
 
-sweep_config['parameters'] = parameters_dict
+sweep_config['parameters'] = parameter_dict
 
 # Hyperparameters kept constant
-parameters_dict.update({
-    'epochs' : {'value' : 10},
+parameter_dict.update({
+    'epochs' : {'value' : 5},
     'warmup' : {'value' : 0.1},
     'max_len' : {'value' : 128},
     'patience' : {'value': 3},
     'min_delta' : {'value' : 0.005}, # 0.5%
-    'sample' : {'value' : True},
+    'sample' : {'value' : 32},
     'title_only' : {'value' : True},
     'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
     'model_name' : {'value' : 'bert-base-cased'},
-    'device' : {'value' : torch.device("cuda" if torch.cuda.is_available() else "cpu")},
     'seed' : {'value' : 86}
 })
 
@@ -65,16 +68,7 @@ parameters_dict.update({
 parameter_dict.update({
     'learning_rate' : {
         'distribution' : 'uniform',
-        'min' : 2e-5,
-        'max' : 10e-5
-    },
-
-    'batch_size' : {
-        'distribution' : 'q_log_uniform',
-        'q' : 1,
-        'min' : math.log(8),
-        'max' : math.log(32)
+        'min' : 0,
+        'max' : 5e-5
     }
 })
-
-sweep_id = wandb.sweep(sweep_config, project = FILES['PROJECT'])

@@ -25,11 +25,14 @@ def test(config = None):
     artifact_ver = f'{FILES["MODEL_NAME"]}:{FILES["VERSION"]}'
     model_path = f"{user}/{project}/{artifact_ver}"
 
-    with wandb.init(config=config, project=FILES['PROJECT'], entity=FILES['USER']):
+    with wandb.init(config=config,entity=FILES['USER']) as run:
+        config = wandb.config
+        
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         _ = torch.manual_seed(config.seed)
 
         # Initialize Tokenizer and Model
-        tokenizer, model = create_model(config.model_name, config.droput)
+        tokenizer, model = create_model(config.model_name, config.dropout)
 
         # Initialize test data set
         test_data_loader = create_reliable_news_dataloader(
@@ -46,9 +49,9 @@ def test(config = None):
         artifact_dir = artifact.download()
         checkpoint = torch.load(os.path.join('artifacts', artifact_ver, 'torch_checkpoint.bin'))
         model.load_state_dict(checkpoint['state_dict'])
-        model.to(config.device)
+        model.to(device)
 
-        y_pred, y_test, test_acc, ave_time = get_predictions(model, config.model_name, test_data_loader, config.device)
+        y_pred, y_test, test_acc, ave_time = get_predictions(model, config.model_name, test_data_loader, device)
 
         test_results = {
             'predictions': y_pred,
@@ -76,4 +79,5 @@ def test(config = None):
         run.finish()
 
 if __name__ == '__main__':
+    sweep_id = wandb.sweep(sweep_config, project = FILES['PROJECT'])
     wandb.agent(sweep_id, test, count=1)

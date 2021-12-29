@@ -1,4 +1,4 @@
-from utils import *
+import os
 
 if __name__ == '__main__':
     url = 'https://drive.google.com/drive/folders/11mRvsHAkggFEJvG4axH4mmWI6FHMQp7X?usp=sharing'
