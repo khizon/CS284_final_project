@@ -17,6 +17,7 @@ from collections import defaultdict
 
 from utils import *
 from constants import *
+import wandb
 
 if __name__ == '__main__':
 
@@ -63,6 +64,7 @@ if __name__ == '__main__':
         num_training_steps = total_steps
     )
     
+    # Save model config
     if not os.path.exists(os.path.join('checkpoint')):
                 os.makedirs(os.path.join('checkpoint'))
             
@@ -70,11 +72,13 @@ if __name__ == '__main__':
         json.dump(model.config.to_dict(), f, ensure_ascii=False, indent=4)
 
     # Training Loop
-
-    history = defaultdict(list)
     best_accuracy = 0
     early_stopping = EarlyStopping(patience = CONFIG['PATIENCE'])
-
+    
+    # Weights and Biases Set up
+    run = wandb.init(project=FILES['PROJECT'], entity=FILES['USER'])
+    wandb.watch(model, log='all')
+    
     for epoch in range(CONFIG['EPOCHS']):
         print(f'Training: {epoch + 1}/{CONFIG["EPOCHS"]} ------')
 
@@ -84,11 +88,12 @@ if __name__ == '__main__':
             )
 
         val_acc, val_loss = eval_model(model, val_data_loader, CONFIG['DEVICE'])
-
-        history['train_acc'].append(train_acc)
-        history['train_loss'].append(train_loss)
-        history['val_acc'].append(val_acc)
-        history['val_loss'].append(val_loss)
+        
+        wandb.log({"train loss": train_loss,
+                   "val loss": val_loss,
+                   "train acc": train_acc,
+                   "val acc": val_acc
+                  })
 
         # Check point best performing model
         if val_acc > best_accuracy:
@@ -102,19 +107,21 @@ if __name__ == '__main__':
             }
             
             # model.save_pretrained(os.path.join('checkpoint'))
-            torch.save(checkpoint, os.path.join('checkpoint', 'torch_checkpoint.pth.tar'))
+            torch.save(checkpoint, os.path.join('checkpoint', 'torch_checkpoint.bin'))
             best_accuracy = val_acc
-        
-        if not os.path.exists(os.path.join('results')):
-            os.makedirs(os.path.join('results'))
-        
-        # torch.save(history, os.path.join('results','train_history.pth.tar'))
-        with open(os.path.join('results', 'train_history.pickle'), 'wb') as f:
-                pickle.dump(history, f)
                 
         #Stop training when accuracy plateus.
         early_stopping(val_acc)
         if early_stopping.early_stop:
             break
-            
-    shutil.make_archive('checkpoint', 'zip', os.path.join('checkpoint'))
+    
+    
+    # Save model to weights and biases
+    artifact = wandb.Artifact(FILES['MODEL_NAME'], type='model')
+    artifact.add_file(os.path.join('checkpoint', 'torch_checkpoint.bin'))
+    artifact.add_file(os.path.join('checkpoint', 'config.json'))
+
+    run.log_artifact(artifact)
+    run.join()
+    run.finish()
+    wandb.finish()

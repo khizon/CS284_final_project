@@ -11,16 +11,22 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 import pandas as pd
 import numpy as np
 import pickle
-# from sklearn.metrics import classification_report, confusion_matrix
 
 from collections import defaultdict
 
 from utils import *
 from constants import *
 import os
+import wandb
 
 
 if __name__ == '__main__':
+    
+    user = FILES['USER']
+    project = FILES['PROJECT']
+    artifact_ver = f'{FILES["MODEL_NAME"]}:{FILES["VERSION"]}'
+    model_path = f"{user}/{project}/{artifact_ver}"
+    
 
     if CONFIG['MODEL_NAME'] == 'bert-base-cased':
         tokenizer = BertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
@@ -42,21 +48,38 @@ if __name__ == '__main__':
         title_only = CONFIG['TITLE_ONLY']
     )
     
-    checkpoint = torch.load(os.path.join('checkpoint', 'torch_checkpoint.pth'))
+    # Download Model From Artifacts WandB
+    run = wandb.init(project=project, entity=user)
+    wandb.watch(model, log='all')
+    
+    artifact = run.use_artifact(model_path, type='model')
+    artifact_dir = artifact.download()
+    
+    # Load Model From Artifacts
+    checkpoint = torch.load(os.path.join('artifacts', artifact_ver, 'torch_checkpoint.bin'))
     model.load_state_dict(checkpoint['state_dict'])
     model.to(CONFIG['DEVICE'])
 
-    y_pred, y_test = get_predictions(model, test_data_loader)
-
-    # print(classification_report(y_test, y_pred))
+    y_pred, y_test, test_acc = get_predictions(model, test_data_loader)
+    
     test_results = {
         'predictions': y_pred,
-        'labels': y_test
+        'labels': y_test,
+        'test_acc' : test_acc
     }
+    
+    wandb.log({"test acc": test_acc})
     
     if not os.path.exists(os.path.join('results')):
             os.makedirs(os.path.join('results'))
 
-    # torch.save(test_results, os.path.join('results', 'test_results.bin'))
-    with open(os.path.join('results', 'test_results.pickle'), 'wb') as f:
+    with open(os.path.join('checkpoint', 'test_results.pickle'), 'wb') as f:
                 pickle.dump(test_results, f)
+
+    # Save model to weights and biases
+    artifact = wandb.Artifact('test_results', type='results')
+    artifact.add_file(os.path.join('checkpoint', 'test_results.pickle'))
+    run.log_artifact(artifact)
+    run.join()
+    run.finish()
+    wandb.finish()

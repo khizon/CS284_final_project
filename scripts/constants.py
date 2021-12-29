@@ -4,6 +4,9 @@ import torch
 Config settings for the experiments
 To use the whole dataset: SAMPLE = None
 To use the concatenated title + content: TITLE_ONLY = False
+
+Files settings for saving checkpoints to WandB
+Change MODEL_NAME when using different settings
 '''
 CONFIG = {
         'FILE_PATH': os.path.join('data', 'nela_gt_2018_site_split'),
@@ -19,6 +22,12 @@ CONFIG = {
         'TITLE_ONLY': True,
         'DROPOUT': 0.2,
         'PATIENCE': 1
+    }
+FILES = {
+        'PROJECT' : 'BERT-test',
+        'MODEL_NAME' : 'BERT-test-model',
+        'VERSION' : 'v0',
+        'USER' : 'khizon',
     }
 
 DISTILL_CONFIG = {

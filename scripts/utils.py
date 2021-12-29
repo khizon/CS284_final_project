@@ -81,7 +81,7 @@ class ReliableNewsDataset(Dataset):
         else:
             encoding = self.tokenizer.encode_plus(
                 data_row.title,
-                data_row.content,
+                ' [SEP] ' + data_row.content,
                 add_special_tokens=True,
                 max_length = self.max_token_len,
                 return_token_type_ids = True,
@@ -126,11 +126,16 @@ def train_epoch(model, data_loader, optimizer, device, scheduler):
         attention_mask = batch['attention_mask'].to(device)
         token_type_ids = batch['token_type_ids'].to(device)
         labels = batch['labels'].to(device).unsqueeze(1)
-
-        outputs = model(input_ids = input_ids,
-                        attention_mask = attention_mask,
-                        token_type_ids = token_type_ids,
-                        labels = labels)
+        
+        if CONFIG['MODEL_NAME'] == 'bert-base-cased':
+            outputs = model(input_ids = input_ids,
+                            attention_mask = attention_mask,
+                            token_type_ids = token_type_ids,
+                            labels = labels)
+        elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
+            outputs = model(input_ids = input_ids,
+                            attention_mask = attention_mask,
+                            labels = labels)
 
         preds = torch.round(outputs['logits'])
         loss = outputs['loss']
@@ -234,10 +239,15 @@ def eval_model(model, data_loader, device):
             token_type_ids = batch['token_type_ids'].to(device)
             labels = batch["labels"].to(device).unsqueeze(1)
 
-            outputs = model(input_ids = input_ids,
-                        attention_mask = attention_mask,
-                        token_type_ids = token_type_ids,
-                        labels = labels)
+            if CONFIG['MODEL_NAME'] == 'bert-base-cased':
+                outputs = model(input_ids = input_ids,
+                                attention_mask = attention_mask,
+                                token_type_ids = token_type_ids,
+                                labels = labels)
+            elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
+                outputs = model(input_ids = input_ids,
+                                attention_mask = attention_mask,
+                                labels = labels)
 
             preds = torch.round(outputs['logits'])
             loss = outputs['loss']
@@ -256,11 +266,11 @@ Get Predictions
 def get_predictions(model, data_loader):
     model = model.eval()
     
-    review_texts = []
     predictions = []
-    prediction_probs = []
     real_values = []
-
+    correct_predictions = 0
+    n_examples = 0
+    
     with torch.no_grad():
         loop = tqdm(data_loader)
         for idx, batch in enumerate(loop):
@@ -270,19 +280,26 @@ def get_predictions(model, data_loader):
             token_type_ids = batch['token_type_ids'].to(CONFIG['DEVICE'])
             labels = batch["labels"].to(CONFIG['DEVICE']).unsqueeze(1)
 
-            outputs = model(input_ids = input_ids,
-                        attention_mask = attention_mask,
-                        token_type_ids = token_type_ids,
-                        labels = labels)
+            if CONFIG['MODEL_NAME'] == 'bert-base-cased':
+                outputs = model(input_ids = input_ids,
+                                attention_mask = attention_mask,
+                                token_type_ids = token_type_ids,
+                                labels = labels)
+            elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
+                outputs = model(input_ids = input_ids,
+                                attention_mask = attention_mask,
+                                labels = labels)
 
             preds = torch.round(outputs['logits'])
+            correct_predictions += (preds == labels).sum().item()
+            n_examples += len(labels)
 
             predictions.extend(preds)
             real_values.extend(labels)
 
     predictions = torch.stack(predictions).cpu()
     real_values = torch.stack(real_values).cpu()
-    return predictions, real_values
+    return predictions, real_values, correct_predictions / n_examples 
 
 '''
 Early Stopping
