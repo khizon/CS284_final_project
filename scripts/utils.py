@@ -284,18 +284,18 @@ def get_predictions(model, data_loader):
             labels = batch["labels"].to(CONFIG['DEVICE']).unsqueeze(1)
 
             if CONFIG['MODEL_NAME'] == 'bert-base-cased':
-                start = time.perf_counter_ns()
+                start = time.perf_counter()
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
                                 token_type_ids = token_type_ids,
                                 labels = labels)
-                end = time.perf_counter_ns()
+                end = time.perf_counter()
             elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
-                start = time.perf_counter_ns()
+                start = time.perf_counter()
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
                                 labels = labels)
-                end = time.perf_counter_ns()
+                end = time.perf_counter()
             
             timings.append(end-start)
 
@@ -308,7 +308,7 @@ def get_predictions(model, data_loader):
 
     predictions = torch.stack(predictions).cpu()
     real_values = torch.stack(real_values).cpu()
-    return predictions, real_values, correct_predictions / n_examples, (np.mean(timings) * 10e9)
+    return predictions, real_values, correct_predictions / n_examples, (np.mean(timings))
 
 '''
 Early Stopping

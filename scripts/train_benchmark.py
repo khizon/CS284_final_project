@@ -22,16 +22,20 @@ import wandb
 if __name__ == '__main__':
 
     _ = torch.manual_seed(42)
+    
+    wandb.config = CONFIG
 
     if CONFIG['MODEL_NAME'] == 'bert-base-cased':
         tokenizer = BertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
         config = BertConfig.from_pretrained(CONFIG['MODEL_NAME'])
+        config.dropout = CONFIG['DROPOUT']
         config.num_labels = 1
         model = BertForSequenceClassification(config)
     elif CONFIG['MODEL_NAME'] == 'distilbert-base-cased':
         tokenizer = DistilBertTokenizer.from_pretrained(CONFIG['MODEL_NAME'])
         config = DistilBertConfig.from_pretrained(CONFIG['MODEL_NAME'])
         config.num_labels = 1
+        config.dropout = CONFIG['DROPOUT']
         model = DistilBertForSequenceClassification(config)
 
     model.to(CONFIG['DEVICE'])

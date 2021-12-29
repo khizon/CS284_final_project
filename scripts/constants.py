@@ -13,20 +13,20 @@ CONFIG = {
         'MODEL_NAME': 'bert-base-cased',
         'DEVICE' : torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
         # 'DEVICE': 'cpu',
-        'MAX_LEN': 512,
-        'BATCH_SIZE': 8,
+        'MAX_LEN': 128,
+        'BATCH_SIZE': 32,
         'EPOCHS': 10,
-        'LR': 2e-5,
+        'LR': 5e-5,
         'WARMUP': 0.1,
         'SAMPLE': None,
         'TITLE_ONLY': True,
         'DROPOUT': 0.2,
-        'PATIENCE': 1
+        'PATIENCE': 3
     }
 FILES = {
         'PROJECT' : 'BERT-test',
-        'MODEL_NAME' : 'BERT-test-model',
-        'VERSION' : 'v0',
+        'MODEL_NAME' : 'BERT-title-only',
+        'VERSION' : 'v2',
         'USER' : 'khizon',
     }
 
