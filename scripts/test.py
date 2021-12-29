@@ -70,8 +70,8 @@ if __name__ == '__main__':
     
     wandb.log({"test acc": test_acc})
     
-    if not os.path.exists(os.path.join('results')):
-            os.makedirs(os.path.join('results'))
+    if not os.path.exists(os.path.join('checkpoint')):
+            os.makedirs(os.path.join('checkpoint'))
 
     with open(os.path.join('checkpoint', 'test_results.pickle'), 'wb') as f:
                 pickle.dump(test_results, f)
