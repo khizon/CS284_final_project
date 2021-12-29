@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
+import random
 import json
 from tqdm.auto import tqdm
 
@@ -18,6 +19,14 @@ import wandb
 import time
 
 from constants import *
+'''
+RNG seed
+'''
+
+def seed_everything(seed=86):
+    _ = torch.manual_seed(seed)
+    random.seed(seed)
+    np.random.seed(seed)
 
 '''
 Convert jsonl files to pandas dataset
@@ -115,7 +124,7 @@ def create_reliable_news_dataloader(file_path, tokenizer, max_len=128, batch_siz
 '''
 Create Model
 '''
-def create_model(model_name, dropout):
+def create_model(model_name, dropout, freeze_bert = True):
     if model_name == 'bert-base-cased':
         tokenizer = BertTokenizer.from_pretrained(model_name)
         config = BertConfig.from_pretrained(model_name)
@@ -128,6 +137,10 @@ def create_model(model_name, dropout):
         config.dropout = dropout
         config.num_labels = 1
         model = DistilBertForSequenceClassification(config)
+    if freeze_bert:
+        for name, param in model.named_parameters():
+            if 'classifier' not in name: # classifier layer
+                param.requires_grad = False
     return tokenizer, model
 '''
 Train Function
@@ -324,8 +337,9 @@ def get_predictions(model, model_name, data_loader, device):
             predictions.extend(preds)
             real_values.extend(labels)
 
-    predictions = torch.stack(predictions).cpu()
-    real_values = torch.stack(real_values).cpu()
+    # print(f'correct: {correct_predictions} n: {n_examples}')
+    predictions = torch.stack(predictions).cpu().detach().tolist()
+    real_values = torch.stack(real_values).cpu().detach().tolist()
     return predictions, real_values, correct_predictions / n_examples, (np.mean(timings))
 
 '''

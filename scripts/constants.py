@@ -12,8 +12,8 @@ Change MODEL_NAME when using different settings
 '''
 
 FILES = {
-        'PROJECT' : 'BERT-benchmark',
-        'MODEL_NAME' : 'BERT-title-only',
+        'PROJECT' : 'UnreliableNews',
+        'MODEL_NAME' : 'BERT-dev-only',
         'VERSION' : 'v6',
         'USER' : 'khizon',
     }
@@ -38,37 +38,23 @@ DISTILL_CONFIG = {
 # Random Search Optimization
 sweep_config = {'method' : 'random'}
 
-# Hyperparameters with discrete (uniform sampling)
-parameter_dict = {
-    'dropout' : {
-        'values' : [0.1, 0.2, 0.3]
-    },
-    'batch_size': {
-        'values' : [8, 16, 32]
-    }
-}
-
-sweep_config['parameters'] = parameter_dict
 
 # Hyperparameters kept constant
-parameter_dict.update({
-    'epochs' : {'value' : 10},
+parameter_dict = {
+    'learning_rate' : {'value' : 5e-5},
+    'epochs' : {'value' : 5},
     'warmup' : {'value' : 0.1},
     'max_len' : {'value' : 128},
+    'batch_size' : {'value' : 32},
+    'dropout' : {'value' : 0.20},
     'patience' : {'value': 3},
     'min_delta' : {'value' : 0.005}, # 0.5%
-    'sample' : {'value' : False},
+    'sample' : {'value' : 32},
     'title_only' : {'value' : True},
+    'freeze_bert' : {'value' : True},
     'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
     'model_name' : {'value' : 'bert-base-cased'},
     'seed' : {'value' : 86}
-})
+}
 
-# Hyperparameters with distribution
-parameter_dict.update({
-    'learning_rate' : {
-        'distribution' : 'uniform',
-        'min' : 0,
-        'max' : 5e-5
-    }
-})
+sweep_config['parameters'] = parameter_dict

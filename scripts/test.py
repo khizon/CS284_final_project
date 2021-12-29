@@ -10,7 +10,7 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 
 import pandas as pd
 import numpy as np
-import pickle
+import json
 
 from collections import defaultdict
 
@@ -29,7 +29,7 @@ def test(config = None):
         config = wandb.config
         
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        _ = torch.manual_seed(config.seed)
+        seed_everything(config.seed)
 
         # Initialize Tokenizer and Model
         tokenizer, model = create_model(config.model_name, config.dropout)
@@ -68,12 +68,12 @@ def test(config = None):
         if not os.path.exists(os.path.join('checkpoint')):
             os.makedirs(os.path.join('checkpoint'))
 
-        with open(os.path.join('checkpoint', 'test_results.pickle'), 'wb') as f:
-                    pickle.dump(test_results, f)
+        with open(os.path.join('checkpoint', 'test_results.json'), 'w', encoding='utf-8') as f:
+            json.dump(test_results, f, ensure_ascii=False, indent=4)
 
         # Save model to weights and biases
         artifact = wandb.Artifact('test_results', type='results')
-        artifact.add_file(os.path.join('checkpoint', 'test_results.pickle'))
+        artifact.add_file(os.path.join('checkpoint', 'test_results.json'))
         run.log_artifact(artifact)
         run.join()
         run.finish()
