@@ -60,15 +60,18 @@ if __name__ == '__main__':
     model.load_state_dict(checkpoint['state_dict'])
     model.to(CONFIG['DEVICE'])
 
-    y_pred, y_test, test_acc = get_predictions(model, test_data_loader)
+    y_pred, y_test, test_acc, ave_time = get_predictions(model, test_data_loader)
     
     test_results = {
         'predictions': y_pred,
         'labels': y_test,
-        'test_acc' : test_acc
+        'test_acc' : test_acc,
+        'ave_time' : ave_time
     }
     
-    wandb.log({"test acc": test_acc})
+    wandb.log({"test acc": test_acc,
+               "ave_time": ave_time
+              })
     
     if not os.path.exists(os.path.join('checkpoint')):
             os.makedirs(os.path.join('checkpoint'))
