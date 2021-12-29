@@ -86,7 +86,7 @@ def train(config = None):
 
             wandb.log({
                 "train acc": train_acc,
-                "train_loss": train_loss
+                "train_loss": train_loss,
                 "val acc": val_acc,
                 "val_loss": val_loss,
                 "epoch" : epoch
@@ -123,4 +123,4 @@ def train(config = None):
 
 if __name__ == '__main__':
     sweep_id = wandb.sweep(sweep_config, project = FILES['PROJECT'])
-    wandb.agent(sweep_id, train, count=2)
+    wandb.agent(sweep_id, train, count=5)

@@ -12,7 +12,7 @@ Change MODEL_NAME when using different settings
 '''
 
 FILES = {
-        'PROJECT' : 'BERT-test',
+        'PROJECT' : 'BERT-benchmark',
         'MODEL_NAME' : 'BERT-title-only',
         'VERSION' : 'v6',
         'USER' : 'khizon',
@@ -52,12 +52,12 @@ sweep_config['parameters'] = parameter_dict
 
 # Hyperparameters kept constant
 parameter_dict.update({
-    'epochs' : {'value' : 5},
+    'epochs' : {'value' : 10},
     'warmup' : {'value' : 0.1},
     'max_len' : {'value' : 128},
     'patience' : {'value': 3},
     'min_delta' : {'value' : 0.005}, # 0.5%
-    'sample' : {'value' : 32},
+    'sample' : {'value' : False},
     'title_only' : {'value' : True},
     'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
     'model_name' : {'value' : 'bert-base-cased'},
