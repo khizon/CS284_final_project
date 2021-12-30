@@ -13,7 +13,7 @@ Change MODEL_NAME when using different settings
 
 FILES = {
         'PROJECT' : 'UnreliableNews',
-        'MODEL_NAME' : 'BERT-dev-only',
+        'MODEL_NAME' : 'BERT-title-only',
         'VERSION' : 'v6',
         'USER' : 'khizon',
     }
@@ -41,19 +41,19 @@ sweep_config = {'method' : 'random'}
 
 # Hyperparameters kept constant
 parameter_dict = {
-    'learning_rate' : {'value' : 5e-5},
-    'epochs' : {'value' : 5},
+    'learning_rate' : {'value' : 5e-5}, # modify
+    'epochs' : {'value' : 10},
     'warmup' : {'value' : 0.1},
-    'max_len' : {'value' : 128},
-    'batch_size' : {'value' : 32},
+    'max_len' : {'value' : 128}, # modify
+    'batch_size' : {'value' : 32}, # modify
     'dropout' : {'value' : 0.20},
     'patience' : {'value': 3},
-    'min_delta' : {'value' : 0.005}, # 0.5%
-    'sample' : {'value' : 32},
-    'title_only' : {'value' : True},
+    'min_delta' : {'value' : 0.005}, 
+    'sample' : {'value' : False}, # set to false for real training
+    'title_only' : {'value' : True}, # modify
     'freeze_bert' : {'value' : True},
     'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
-    'model_name' : {'value' : 'bert-base-cased'},
+    'model_name' : {'value' : 'bert-base-cased'}, # modify
     'seed' : {'value' : 86}
 }
 

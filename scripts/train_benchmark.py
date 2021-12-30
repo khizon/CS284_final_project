@@ -104,6 +104,15 @@ def train(config = None):
                 break
         
         # Testing
+        
+        # Initialize Tokenizer and Model
+        tokenizer, model = create_model(config.model_name, config.dropout)
+        
+        # Get weights of best model
+        checkpoint = torch.load(os.path.join('checkpoint', 'torch_checkpoint.bin'))
+        model.load_state_dict(checkpoint['state_dict'])
+        model.to(device)
+        
         # Initialize test data set
         test_data_loader = create_reliable_news_dataloader(
             os.path.join(config.dataset_path, 'test.jsonl'),
