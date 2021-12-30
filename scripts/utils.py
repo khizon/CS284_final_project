@@ -51,7 +51,7 @@ def load_dataset(file_path):
     train_df['split'] = 'train'
     val_df = jsonl_to_df(os.path.join(file_path, 'val.jsonl'))
     val_df['split'] = 'val'
-    test_df = jsonl_to_df(os.path.join(file_path, 'train.jsonl'))
+    test_df = jsonl_to_df(os.path.join(file_path, 'test.jsonl'))
     test_df['split'] = 'test'
 
     df = pd.concat([train_df, val_df, test_df])
