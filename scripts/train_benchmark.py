@@ -2,7 +2,7 @@ from tqdm.auto import tqdm
 
 import torch
 
-
+import transformers
 from transformers import BertConfig, BertTokenizer, BertForSequenceClassification
 from transformers import DistilBertConfig, DistilBertTokenizer, DistilBertForSequenceClassification
 from transformers import AdamW, get_linear_schedule_with_warmup
@@ -153,5 +153,6 @@ def train(config = None):
         run.finish()
 
 if __name__ == '__main__':
+    transformers.logging.set_verbosity_info()
     sweep_id = wandb.sweep(sweep_config, project = FILES['PROJECT'])
     wandb.agent(sweep_id, train, count=1)

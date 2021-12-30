@@ -96,7 +96,7 @@ class ReliableNewsDataset(Dataset):
                 max_length = self.max_token_len,
                 return_token_type_ids = True,
                 padding = 'max_length',
-                truncation = True,
+                truncation = 'only_second',
                 return_attention_mask = True,
                 return_tensors = 'pt'
             )

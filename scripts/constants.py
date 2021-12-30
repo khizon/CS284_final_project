@@ -43,7 +43,7 @@ sweep_config = {'method' : 'random'}
 parameter_dict = {
     'learning_rate' : {'value' : 2e-5}, # modify
     'epochs' : {'value' : 10},
-    'warmup' : {'value' : 0.10},
+    'warmup' : {'value' : 0.20},
     'max_len' : {'value' : 512}, # modify
     'batch_size' : {'value' : 8}, # modify
     'dropout' : {'value' : 0.10},
