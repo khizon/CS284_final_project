@@ -43,10 +43,11 @@ sweep_config = {'method' : 'random'}
 parameter_dict = {
     'learning_rate' : {'value' : 2e-5}, # modify
     'epochs' : {'value' : 10},
-    'warmup' : {'value' : 0.20},
+    'warmup' : {'value' : 0.06},
     'max_len' : {'value' : 512}, # modify
     'batch_size' : {'value' : 8}, # modify
     'dropout' : {'value' : 0.10},
+    'weight_decay' : {'value' : 0.10},
     'patience' : {'value': 3},
     'min_delta' : {'value' : 0.005}, 
     'sample' : {'value' : False}, # set to false for real training

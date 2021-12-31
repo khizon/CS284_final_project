@@ -31,7 +31,7 @@ def train(config = None):
             os.path.join(config.dataset_path, 'train.jsonl'),
             tokenizer,
             max_len = config.max_len,
-            batch_size = config.batch_size,
+            batch_size = config.batch_size * max(1, n_gpu),
             shuffle=True,
             sample = config.sample,
             title_only = config.title_only
@@ -41,13 +41,22 @@ def train(config = None):
             os.path.join(config.dataset_path, 'val.jsonl'),
             tokenizer,
             max_len = config.max_len,
-            batch_size = config.batch_size,
+            batch_size = config.batch_size * max(1, n_gpu),
             sample = config.sample,
             title_only = config.title_only
         )
 
+        # Prepare optimizer and schedule (linear warmup and decay)
+        no_decay = ["bias", "LayerNorm.weight"]
+        optimizer_grouped_parameters = [
+            {
+                "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+                "weight_decay": config.weight_decay,
+            },
+            {"params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0},
+        ]
         # Optimizer and Scheduler
-        optimizer = AdamW(model.parameters(), lr = config.learning_rate)
+        optimizer = AdamW(optimizer_grouped_parameters, lr = config.learning_rate)
         total_steps = len(train_data_loader) * config.epochs
         scheduler = get_linear_schedule_with_warmup(
             optimizer,
@@ -124,6 +133,7 @@ def train(config = None):
             os.path.join(config.dataset_path, 'test.jsonl'),
             tokenizer,
             max_len = config.max_len,
+            batch_size = config.batch_size * max(1, n_gpu),
             sample = config.sample,
             title_only = config.title_only
         )
