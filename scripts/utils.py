@@ -161,6 +161,7 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
         token_type_ids = batch['token_type_ids'].to(device)
         labels = batch['labels'].to(device).unsqueeze(1)
 
+        model.zero_grad()
         optimizer.zero_grad()
 
         with torch.cuda.amp.autocast():
