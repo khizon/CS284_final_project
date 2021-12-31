@@ -147,7 +147,7 @@ def create_model(model_name, dropout, freeze_bert = True):
 '''
 Train Function
 '''
-def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, scaler):
+def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, scaler=None):
     model = model.train()
     n_gpu = torch.cuda.device_count()
     losses = []
@@ -164,16 +164,16 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
         model.zero_grad()
         optimizer.zero_grad()
 
-        with torch.cuda.amp.autocast():
-            if model_name == 'bert-base-cased':
-                outputs = model(input_ids = input_ids,
-                                attention_mask = attention_mask,
-                                token_type_ids = token_type_ids,
-                                labels = labels)
-            elif model_name == 'distilbert-base-cased':
-                outputs = model(input_ids = input_ids,
-                                attention_mask = attention_mask,
-                                labels = labels)
+        # with torch.cuda.amp.autocast():
+        if model_name == 'bert-base-cased':
+            outputs = model(input_ids = input_ids,
+                            attention_mask = attention_mask,
+                            token_type_ids = token_type_ids,
+                            labels = labels)
+        elif model_name == 'distilbert-base-cased':
+            outputs = model(input_ids = input_ids,
+                            attention_mask = attention_mask,
+                            labels = labels)
 
         preds = torch.round(outputs['logits'])
         loss = outputs['loss'].mean() if n_gpu > 1 else outputs['loss']
@@ -182,13 +182,14 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
         n_examples += len(labels)
         losses.append(loss.item())
 
-        scaler.scale(loss).backward()
+        # scaler.scale(loss).backward()
+        loss.backward()
         # Unscales the gradients of optimizer's assigned params in-place
-        scaler.unscale_(optimizer)
+        # scaler.unscale_(optimizer)
         nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        
-        scaler.step(optimizer)
-        scaler.update()
+        optimizer.step()
+        # scaler.step(optimizer)
+        # scaler.update()
         scheduler.step()
 
         loop.set_postfix(train_loss = np.mean(losses), train_acc = float(correct_predictions/n_examples))

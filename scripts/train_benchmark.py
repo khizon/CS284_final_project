@@ -65,7 +65,8 @@ def train(config = None):
         )
 
         # Mixed precision Gradient Scaler
-        scaler = torch.cuda.amp.GradScaler()
+        # scaler = torch.cuda.amp.GradScaler()
+        scaler = None
 
         # Save Model Config
         if not os.path.exists(os.path.join('checkpoint')):
