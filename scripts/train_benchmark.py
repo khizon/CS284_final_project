@@ -18,10 +18,13 @@ def train(config = None):
         seed_everything(config.seed)
         
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        n_gpu = torch.cuda.device_count()
 
         # Initialize Model
         tokenizer, model = create_model(config.model_name, config.dropout, config.freeze_bert)
         model.to(device)
+        if n_gpu > 1:
+            model = torch.nn.DataParallel(model)
 
         # Initialize Train and Eval data set
         train_data_loader = create_reliable_news_dataloader(
@@ -52,6 +55,9 @@ def train(config = None):
             num_training_steps = total_steps
         )
 
+        # Mixed precision Gradient Scaler
+        scaler = torch.cuda.amp.GradScaler()
+
         # Save Model Config
         if not os.path.exists(os.path.join('checkpoint')):
                 os.makedirs(os.path.join('checkpoint'))
@@ -70,7 +76,7 @@ def train(config = None):
 
             train_acc, train_loss = train_epoch(
                 model, config.model_name, train_data_loader, optimizer, 
-                device, scheduler
+                device, scheduler,scaler
             )
 
             val_acc, val_loss = eval_model(model, config.model_name, val_data_loader, device)

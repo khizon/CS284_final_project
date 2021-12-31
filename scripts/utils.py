@@ -27,6 +27,8 @@ def seed_everything(seed=86):
     _ = torch.manual_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
+    if torch.cuda.device_count() > 0:
+        torch.cuda.manual_seed_all(seed)
 
 '''
 Convert jsonl files to pandas dataset
@@ -145,8 +147,9 @@ def create_model(model_name, dropout, freeze_bert = True):
 '''
 Train Function
 '''
-def train_epoch(model, model_name, data_loader, optimizer, device, scheduler):
+def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, scaler):
     model = model.train()
+    n_gpu = torch.cuda.device_count()
     losses = []
     correct_predictions = 0
     n_examples = 0
@@ -157,29 +160,32 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler):
         attention_mask = batch['attention_mask'].to(device)
         token_type_ids = batch['token_type_ids'].to(device)
         labels = batch['labels'].to(device).unsqueeze(1)
-        
-        if model_name == 'bert-base-cased':
-            outputs = model(input_ids = input_ids,
-                            attention_mask = attention_mask,
-                            token_type_ids = token_type_ids,
-                            labels = labels)
-        elif model_name == 'distilbert-base-cased':
-            outputs = model(input_ids = input_ids,
-                            attention_mask = attention_mask,
-                            labels = labels)
+
+        optimizer.zero_grad()
+
+        with torch.cuda.amp.autocast():
+            if model_name == 'bert-base-cased':
+                outputs = model(input_ids = input_ids,
+                                attention_mask = attention_mask,
+                                token_type_ids = token_type_ids,
+                                labels = labels)
+            elif model_name == 'distilbert-base-cased':
+                outputs = model(input_ids = input_ids,
+                                attention_mask = attention_mask,
+                                labels = labels)
 
         preds = torch.round(outputs['logits'])
-        loss = outputs['loss']
+        loss = outputs['loss'].mean() if n_gpu > 1 else outputs['loss']
 
         correct_predictions += (preds == labels).sum().item()
         n_examples += len(labels)
         losses.append(loss.item())
 
-        loss.backward()
+        scaler.scale(loss).backward()
         nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.step()
+        scaler.step(optimizer)
+        scaler.update()
         scheduler.step()
-        optimizer.zero_grad()
 
         loop.set_postfix(train_loss = np.mean(losses), train_acc = float(correct_predictions/n_examples))
 
