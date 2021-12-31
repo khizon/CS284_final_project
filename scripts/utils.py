@@ -183,7 +183,10 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
         losses.append(loss.item())
 
         scaler.scale(loss).backward()
+        # Unscales the gradients of optimizer's assigned params in-place
+        scaler.unscale_(optimizer)
         nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        
         scaler.step(optimizer)
         scaler.update()
         scheduler.step()
