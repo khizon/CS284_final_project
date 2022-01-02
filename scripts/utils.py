@@ -311,8 +311,13 @@ def eval_model(model, model_name, data_loader, device):
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
                                 labels = labels)
+            elif model_name == 'tinyBert':
+                logits, _, _ = model(input_ids = input_ids,
+                                attention_mask = attention_mask,
+                                labels = labels)
 
-            preds = torch.round(outputs['logits'])
+            # preds = torch.round(outputs['logits'])
+            preds = torch.round(logits)
             loss = outputs['loss']
 
             correct_predictions += (preds == labels).sum().item()
