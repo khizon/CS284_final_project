@@ -19,7 +19,7 @@ import numpy as np
 import wandb
 import time
 
-from constants import *
+# from constants import *
 '''
 RNG seed
 '''
