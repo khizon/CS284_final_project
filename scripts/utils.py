@@ -14,6 +14,10 @@ from transformers import BertConfig, BertTokenizer, BertForSequenceClassificatio
 from transformers import DistilBertConfig, DistilBertTokenizer, DistilBertForSequenceClassification
 from transformers import AdamW, get_linear_schedule_with_warmup
 
+from transformer import TinyBertForSequenceClassification
+from transformer.optimization import BertAdam
+from transformer.file_utils import WEIGHTS_NAME, CONFIG_NAME
+
 import pandas as pd
 import numpy as np
 import wandb
@@ -127,7 +131,7 @@ def create_reliable_news_dataloader(file_path, tokenizer, max_len=128, batch_siz
 '''
 Create Model
 '''
-def create_model(model_name, dropout, freeze_bert = True):
+def create_model(model_name, dropout=0.1, freeze_bert = True):
     if model_name == 'bert-base-cased':
         tokenizer = BertTokenizer.from_pretrained(model_name)
         config = BertConfig.from_pretrained(model_name)
@@ -140,6 +144,9 @@ def create_model(model_name, dropout, freeze_bert = True):
         config.dropout = dropout
         config.num_labels = 1
         model = DistilBertForSequenceClassification(config)
+    elif model_name == 'tiny-bert':
+        tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
+        model = TinyBertForSequenceClassification('bert-base-cased', num_labels = 1)
     if freeze_bert:
         for name, param in model.named_parameters():
             if 'classifier' not in name: # classifier layer
@@ -153,7 +160,13 @@ def teacher_student_models(model_name):
     pass
 
     # Download teacher weights from WandB
-
+'''
+Soft Cross entropy loss
+'''
+def soft_cross_entropy(predicts, targets):
+    student_likelihood = torch.nn.functional.log_softmax(predicts, dim=-1)
+    targets_prob = torch.nn.functional.softmax(targets, dim=-1)
+    return (- targets_prob * student_likelihood).mean()
 '''
 Train Function
 '''
@@ -184,9 +197,22 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
             outputs = model(input_ids = input_ids,
                             attention_mask = attention_mask,
                             labels = labels)
+        elif model_name == 'tiny-bert':
+            logits, _, _ = model(input_ids = input_ids,
+                            attention_mask = attention_mask,
+                            token_type_ids = token_type_ids,
+                            labels = labels)
 
-        preds = torch.round(outputs['logits'])
-        loss = outputs['loss'].mean() if n_gpu > 1 else outputs['loss']
+        if model_name == 'tiny-bert':
+            loss = soft_cross_entropy(logits, labels)
+            preds = torch.round(logits)
+        else:
+            loss = outputs['loss']
+            preds = torch.round(outputs['logits'])
+
+        if n_gpu > 1:
+            loss = loss.mean()
+        
 
         correct_predictions += (preds == labels).sum().item()
         n_examples += len(labels)
@@ -209,11 +235,6 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
 '''
 Distillation Training Function
 '''
-def sof_cross_entropy(predicts, targets):
-    student_likelihood = torch.nn.functional.log_softmax(predicts, dim=-1)
-    targets_prob = torch.nn.functional.softmax(targets, dim=-1)
-    return (- targets_prob * student_likelihood).mean()
-
 def distill_train_epoch(student_model, teacher_model, train_dataloader, optimizer, device):
     student_model.train()
     teacher_model.eval()
@@ -311,14 +332,21 @@ def eval_model(model, model_name, data_loader, device):
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
                                 labels = labels)
-            elif model_name == 'tinyBert':
+            elif model_name == 'tiny-bert':
                 logits, _, _ = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
+                                token_type_ids = token_type_ids,
                                 labels = labels)
 
-            # preds = torch.round(outputs['logits'])
-            preds = torch.round(logits)
-            loss = outputs['loss']
+            if model_name == 'tiny-bert':
+                loss = soft_cross_entropy(logits, labels)
+                preds = torch.round(logits)
+            else:
+                loss = outputs['loss']
+                preds = torch.round(outputs['logits'])
+
+            if n_gpu > 1:
+                loss = loss.mean()
 
             correct_predictions += (preds == labels).sum().item()
             n_examples += len(labels)
@@ -364,15 +392,27 @@ def get_predictions(model, model_name, data_loader, device):
                                 attention_mask = attention_mask,
                                 labels = labels)
                 end = time.perf_counter()
+            elif model_name == 'tiny-bert':
+                start = time.perf_counter()
+                logits, _, _ = model(input_ids = input_ids,
+                                attention_mask = attention_mask,
+                                token_type_ids = token_type_ids,
+                                labels = labels)
+                end = time.perf_counter()
             
             timings.append(end-start)
 
-            preds = torch.round(outputs['logits'])
+            if model_name == 'tiny-bert':
+                preds = torch.round(logits)
+            else:
+                preds = torch.round(outputs['logits'])
+
             correct_predictions += (preds == labels).sum().item()
             n_examples += len(labels)
 
             predictions.extend(preds)
             real_values.extend(labels)
+            loop.set_postfix(test_acc = float(correct_predictions/n_examples))
 
     # print(f'correct: {correct_predictions} n: {n_examples}')
     predictions = torch.stack(predictions).cpu().detach().tolist()

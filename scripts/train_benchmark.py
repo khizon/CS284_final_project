@@ -6,6 +6,7 @@ import transformers
 from transformers import BertConfig, BertTokenizer, BertForSequenceClassification
 from transformers import DistilBertConfig, DistilBertTokenizer, DistilBertForSequenceClassification
 from transformers import AdamW, get_linear_schedule_with_warmup
+from transformer.file_utils import WEIGHTS_NAME, CONFIG_NAME
 
 from utils import *
 from constants import *
@@ -22,9 +23,10 @@ def train(config = None):
 
         # Initialize Model
         tokenizer, model = create_model(config.model_name, config.dropout, config.freeze_bert)
-        model.to(device)
+        
         if n_gpu > 1:
             model = torch.nn.DataParallel(model)
+        model.to(device)
 
         # Initialize Train and Eval data set
         train_data_loader = create_reliable_news_dataloader(
@@ -111,7 +113,7 @@ def train(config = None):
                 }
                 
                 # model.save_pretrained(os.path.join('checkpoint'))
-                torch.save(checkpoint, os.path.join('checkpoint', 'torch_checkpoint.bin'))
+                torch.save(checkpoint, os.path.join('checkpoint', 'pytorch_model.bin'))
                 best_accuracy = val_acc
             
             #Stop training when accuracy plateus.
@@ -125,8 +127,10 @@ def train(config = None):
         tokenizer, model = create_model(config.model_name, config.dropout)
         
         # Get weights of best model
-        checkpoint = torch.load(os.path.join('checkpoint', 'torch_checkpoint.bin'))
+        checkpoint = torch.load(os.path.join('checkpoint', 'pytorch_model.bin'))
         model.load_state_dict(checkpoint['state_dict'])
+        if n_gpu > 1:
+            model = torch.nn.DataParallel(model)
         model.to(device)
         
         # Initialize test data set
