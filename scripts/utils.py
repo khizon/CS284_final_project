@@ -8,6 +8,7 @@ from tqdm.auto import tqdm
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
+from torch.nn import CrossEntropyLoss, MSELoss
 
 from transformers import BertConfig, BertTokenizer, BertForSequenceClassification
 from transformers import DistilBertConfig, DistilBertTokenizer, DistilBertForSequenceClassification
@@ -145,6 +146,15 @@ def create_model(model_name, dropout, freeze_bert = True):
                 param.requires_grad = False
     return tokenizer, model
 '''
+Initialize Student Teacher models
+'''
+
+def teacher_student_models(model_name):
+    pass
+
+    # Download teacher weights from WandB
+
+'''
 Train Function
 '''
 def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, scaler=None):
@@ -199,70 +209,81 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
 '''
 Distillation Training Function
 '''
-# def sof_cross_entropy(predicts, targets):
-#     student_likelihood = torch.nn.functional.log_softmax(predicts, dim=-1)
-#     targets_prob = torch.nn.functional.softmax(targets, dim=-1)
-#     return (- targets_prob * student_likelihood).mean()
+def sof_cross_entropy(predicts, targets):
+    student_likelihood = torch.nn.functional.log_softmax(predicts, dim=-1)
+    targets_prob = torch.nn.functional.softmax(targets, dim=-1)
+    return (- targets_prob * student_likelihood).mean()
 
-# def distill_train_epoch(student_model, teacher_model, train_dataloader, n_gpu):
-#     for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration", ascii=True)):
-#         batch = tuple(t.to(device) for t in batch)
+def distill_train_epoch(student_model, teacher_model, train_dataloader, optimizer, device):
+    student_model.train()
+    teacher_model.eval()
+    n_gpu = torch.cuda.device_count()
 
-#         input_ids, input_mask, label_ids = batch
-#         if input_ids.size()[0] != DISTILL_CONFIG['BATCH_SIZE']:
-#             continue
+    tr_rep_losses = []
+    tr_att_losses = []
+    correct_predictions = 0
+    n_examples = 0
 
-#         att_loss = 0.
-#         rep_loss = 0.
-#         cls_loss = 0.
+    loop = tqdm(data_loader)
+    for step, batch in enumerate(loop):
+        att_loss = 0.0
+        rep_loss = 0.0
 
-#         student_logits, student_atts, student_reps = student_model(input_ids, segment_ids, input_mask, is_student=True)
+        input_ids = batch['input_ids'].to(device)
+        attention_mask = batch['attention_mask'].to(device)
+        token_type_ids = batch['token_type_ids'].to(device)
+        labels = batch['labels'].to(device).unsqueeze(1)
 
-#         with torch.no_grad():
-#             teacher_logits, teacher_atts, teacher_reps = teacher_model(input_ids, segment_ids, input_mask)
+        student_logits, student_atts, student_reps = student_model(input_ids, token_type_ids, attention_mask, is_student=True)
 
-#         if not DISTILL_CONFIG['PRED_DISTILL']:
-#             teacher_layer_num = len(teacher_atts)
-#             student_layer_num = len(student_atts)
-#             assert teacher_layer_num % student_layer_num == 0
-#             layers_per_block = int(teacher_layer_num / student_layer_num)
-#             new_teacher_atts = [teacher_atts[i * layers_per_block + layers_per_block - 1]
-#                                 for i in range(student_layer_num)]
+        with torch.no_grad():
+            teacher_logits, teacher_atts, teacher_reps = student_model(input_ids, token_type_ids, attention_mask)
 
-#             for student_att, teacher_att in zip(student_atts, new_teacher_atts):
-#                 student_att = torch.where(student_att <= -1e2, torch.zeros_like(student_att).to(device), student_att)
-#                 teacher_att = torch.where(teacher_att <= -1e2, torch.zeros_like(teacher_att).to(device), teacher_att)
 
-#                 tmp_loss = loss_mse(student_att, teacher_att)
-#                 att_loss += tmp_loss
+        # Compute Student accuracy
+        preds = torch.round(student_logits)
+        correct_predictions += (preds == labels).sum().item()
+        n_examples += len(labels)
 
-#             new_teacher_reps = [teacher_reps[i * layers_per_block] for i in range(student_layer_num + 1)]
-#             new_student_reps = student_reps
-#             for student_rep, teacher_rep in zip(new_student_reps, new_teacher_reps):
-#                 tmp_loss = loss_mse(student_rep, teacher_rep)
-#                 rep_loss += tmp_loss
+        # Compare student and teacher layers
+        teacher_layer_num = len(teacher_atts)
+        student_layer_num = len(student_atts)
+        assert teacher_layer_num % student_layer_num == 0
+        layers_per_block = int(teacher_layer_num / student_layer_num)
+        new_teacher_atts = [teacher_atts[i * layers_per_block + layers_per_block - 1]
+                            for i in range(student_layer_num)]
 
-#             loss = rep_loss + att_loss
-#             tr_att_loss += att_loss.item()
-#             tr_rep_loss += rep_loss.item()
-#         else:
-#             cls_loss = soft_cross_entropy(student_logits / DISTILL_CONFIG['TEMP'], teacher_logits / DISTILL_CONFIG['TEMP'])
+        for student_att, teacher_att in zip(student_atts, new_teacher_atts):
+            student_att = torch.where(student_att <= -1e2, torch.zeros_like(student_att).to(device),
+                                        student_att)
+            teacher_att = torch.where(teacher_att <= -1e2, torch.zeros_like(teacher_att).to(device),
+                                        teacher_att)
 
-#             loss = cls_loss
-#             tr_cls_loss += cls_loss.item()
+            tmp_loss = MSELoss(student_att, teacher_att)
+            att_loss += tmp_loss
 
-#         if n_gpu > 1:
-#             loss = loss.mean()  # mean() to average on multi-gpu.
+        new_teacher_reps = [teacher_reps[i * layers_per_block] for i in range(student_layer_num + 1)]
+        new_student_reps = student_reps
 
-#         loss.backward()
+        for student_rep, teacher_rep in zip(new_student_reps, new_teacher_reps):
+            tmp_loss = MSELoss(student_rep, teacher_rep)
+            rep_loss += tmp_loss
 
-#         tr_loss += loss.item()
-#         nb_tr_examples += label_ids.size(0)
-#         nb_tr_steps += 1
+        loss = rep_loss + att_loss
+        tr_rep_losses.append(rep_loss.item())
+        tr_att_losses.append(att_loss.item())
+        
+        if n_gpu > 1:
+            loss = loss.mean()  # mean() to average on multi-gpu.
+        
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
 
-#         optimizer.step()
-#         optimizer.zero_grad()
-#         global_step += 1
+        loop.set_postfix(att_loss = np.mean(tr_att_losses), rep_loss = np.mean(tr_rep_losses), train_acc = float(correct_predictions/n_examples))
+
+    return correct_predictions/n_examples, np.mean(tr_att_losses), np.mean(tr_rep_losses)
+        
 '''
 Evaluation Function
 '''
