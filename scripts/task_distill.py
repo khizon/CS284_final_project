@@ -7,6 +7,8 @@ from transformer.tokenization import BertTokenizer
 from transformer.optimization import BertAdam
 from transformer.file_utils import WEIGHTS_NAME, CONFIG_NAME
 
+import transformers
+
 from utils import *
 from constants import *
 import wandb
@@ -21,19 +23,19 @@ def task_distill(config = None):
 
         # Initialize Tokenizer and Teacher Model
         tokenizer, teacher = tokenizer, model = create_model('bert-base-cased', distill = True)
-        checkpoint = torch.load(os.path.join('artifacts', config.teacher_model, 'pytorch_model.bin'))
+        checkpoint = torch.load(os.path.join('artifacts', config.teacher_model, 'pytorch_model.bin'), map_location=torch.device(device))
         teacher.load_state_dict(checkpoint['state_dict'])
 
         # Initialize Student Model (General TinyBert)
-        student_path = os.path.join('artifacts', config.student_model, 'config.json')
-        student_config = TinyBertConfig(student_path)
-        student_config.hidden_size = 768
-        student = TinyBertForSequenceClassification(student_config, num_labels = 1)
+        student_path = os.path.join('artifacts', config.student_model)
+        student = TinyBertForSequenceClassification.from_pretrained(student_path, num_labels = 1)
 
-        if not os.path.exists(os.path.join('artifact')):
-            os.makedirs(os.path.join('artifact'))
+        if not os.path.exists(os.path.join('artifacts', 'temp')):
+            os.makedirs(os.path.join('artifacts', 'temp'))
         
-        torch.save(student_config, os.path('artifact', 'config.json'))
+        # torch.save(student.config, os.path('artifacts', 'config.json'))
+        # with open(os.path.join('artifacts', 'temp', 'config.json'), 'w', encoding='utf-8') as f:
+        #     json.dump(student.config, f, ensure_ascii=False, indent=4)
 
         if n_gpu > 1:
             teacher = torch.nn.DataParallel(teacher)
@@ -87,7 +89,7 @@ def task_distill(config = None):
         for epoch in range(config.epochs):
             print(f'Distillation {epoch + 1}/{config.epochs}:')
 
-            train_acc, train_loss = distill_train_epoch(student, teacher, train_data_loader, optimizer, config.pred_distill)
+            train_acc, train_loss = distill_train_epoch(student, teacher, train_data_loader, optimizer, device, config.pred_distill)
 
             val_acc, val_loss = eval_model(student, 'tiny-bert', val_data_loader, device)
 
@@ -107,10 +109,8 @@ def task_distill(config = None):
                     'accuracy': val_acc,
                     'epoch': epoch
                 }
-                
-                if not os.path.exists(os.path.join('artifact')):
-                    os.makedirs(os.path.join('artifact'))
-                torch.save(checkpoint, os.path.join('artifact', 'pytorch_model.bin'))
+
+                torch.save(checkpoint, os.path.join('artifacts', 'temp', 'pytorch_model.bin'))
                 best_accuracy = val_acc
             
             #Stop training when accuracy plateus.
@@ -119,9 +119,9 @@ def task_distill(config = None):
                 break
 
         # Testing
-        model = TinyBertForSequenceClassification.from_pretrained(student_config, num_labels = 1)
-        checkpoint = torch.load(os.path.join('artifacts', 'pytorch_model.bin'))
-        model.load_state_dict(checkpoint['state_dict'])
+        model = TinyBertForSequenceClassification.from_pretrained(os.path.join('artifacts', 'temp'), num_labels = 1)
+        # checkpoint = torch.load(os.path.join('artifacts', 'pytorch_model.bin'),map_location=torch.device(device))
+        # model.load_state_dict(checkpoint['state_dict'])
 
         model.to(device)
 
@@ -129,13 +129,13 @@ def task_distill(config = None):
         test_data_loader = create_reliable_news_dataloader(
             os.path.join(config.dataset_path, 'test.jsonl'),
             tokenizer,
-            max_len = config.max_len,
-            batch_size = config.batch_size * max(1, n_gpu),
+            max_len = 512,
+            batch_size = 8 * max(1, n_gpu),
             sample = config.sample,
-            title_only = config.title_only
+            title_only = False
         )
         
-        y_pred, y_test, test_acc, ave_time = get_predictions(model, config.model_name, test_data_loader, device)
+        y_pred, y_test, test_acc, ave_time = get_predictions(model, 'tiny-bert', test_data_loader, device)
 
         test_results = {
             'predictions': y_pred,
@@ -149,13 +149,13 @@ def task_distill(config = None):
             "ave_time": ave_time
         })
 
-        with open(os.path.join('artifact', 'test_results.json'), 'w', encoding='utf-8') as f:
+        with open(os.path.join('artifacts', 'temp', 'test_results.json'), 'w', encoding='utf-8') as f:
             json.dump(test_results, f, ensure_ascii=False, indent=4)
 
         artifact = wandb.Artifact(FILES['MODEL_NAME'], type = 'model')
-        artifact.add_file(os.path.join('artifact', 'pytorch_model.bin'))
-        artifact.add_file(os.path.join('artifact', 'config.json'))
-        artifact.add_file(os.path.join('artifact', 'test_results.json'))
+        artifact.add_file(os.path.join('artifacts', 'temp', 'pytorch_model.bin'))
+        artifact.add_file(os.path.join('artifacts', 'temp', 'config.json'))
+        artifact.add_file(os.path.join('artifacts', 'temp', 'test_results.json'))
         run.log_artifact(artifact)
         run.join()
         run.finish()

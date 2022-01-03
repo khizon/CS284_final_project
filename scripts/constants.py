@@ -13,7 +13,7 @@ Change MODEL_NAME when using different settings
 
 FILES = {
         'PROJECT' : 'UnreliableNews',
-        'MODEL_NAME' : 'BERT-title-benchmark',
+        'MODEL_NAME' : 'distill-test',
         'VERSION' : 'v6',
         'USER' : 'khizon',
     }
@@ -48,11 +48,11 @@ distill_dict = {
     'weight_decay' : {'value' : 0.10},
     'patience' : {'value': 3},
     'min_delta' : {'value' : 0.005}, 
-    'sample' : {'value' : False}, # set to false for real training
+    'sample' : {'value' : 16}, # set to false for real training
     'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
-    'model_name' : {'value' : 'bert-base-cased'}, # modify
-    'student_model' : {'value' : ''},
+    'student_model' : {'value' : '2nd_General_TinyBERT_6L_768D'},
     'teacher_model' : {'value' : 'BERT-title-content-benchmark:v0'},
     'seed' : {'value' : 86},
-    'pred_distill' : {'value' : False}
+    'pred_distill' : {'value' : False},
+    'student_dimension' : {'value' : 312}
 }

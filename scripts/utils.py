@@ -14,10 +14,6 @@ from transformers import BertConfig, BertTokenizer, BertForSequenceClassificatio
 from transformers import DistilBertConfig, DistilBertTokenizer, DistilBertForSequenceClassification
 from transformers import AdamW, get_linear_schedule_with_warmup
 
-from transformer import TinyBertForSequenceClassification
-from transformer.optimization import BertAdam
-from transformer.file_utils import WEIGHTS_NAME, CONFIG_NAME
-
 import pandas as pd
 import numpy as np
 import wandb
@@ -131,7 +127,7 @@ def create_reliable_news_dataloader(file_path, tokenizer, max_len=128, batch_siz
 '''
 Create Model
 '''
-def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False):
+def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, student_dim = None):
     if model_name == 'bert-base-cased':
         tokenizer = BertTokenizer.from_pretrained(model_name)
         config = BertConfig.from_pretrained(model_name)
@@ -144,9 +140,6 @@ def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False):
         config.dropout = dropout
         config.num_labels = 1
         model = DistilBertForSequenceClassification(config)
-    elif model_name == 'tiny-bert':
-        tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
-        model = TinyBertForSequenceClassification('bert-base-cased', num_labels = 1)
     if freeze_bert:
         for name, param in model.named_parameters():
             if 'classifier' not in name: # classifier layer
@@ -238,7 +231,7 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
 '''
 Distillation Training Function
 '''
-def distill_train_epoch(student_model, teacher_model, train_dataloader, optimizer, device, pred_distill=False):
+def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, device, pred_distill=False):
     student_model.train()
     teacher_model.eval()
     n_gpu = torch.cuda.device_count()
@@ -313,7 +306,7 @@ def distill_train_epoch(student_model, teacher_model, train_dataloader, optimize
         optimizer.step()
         optimizer.zero_grad()
 
-        loop.set_postfix(att_loss = np.mean(tr_att_losses), rep_loss = np.mean(tr_rep_losses), train_acc = float(correct_predictions/n_examples))
+        loop.set_postfix(train_loss = np.mean(losses), train_acc = float(correct_predictions/n_examples))
 
     return correct_predictions/n_examples, np.mean(losses)
         
@@ -322,6 +315,7 @@ Evaluation Function
 '''
 def eval_model(model, model_name, data_loader, device):
     model = model.eval()
+    n_gpu = torch.cuda.device_count()
 
     losses = []
     correct_predictions = 0
