@@ -236,6 +236,7 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, de
     n_examples = 0
 
     loss_mse = MSELoss()
+    criterion = torch.nn.BCEWithLogitsLoss()
 
     loop = tqdm(data_loader)
     for step, batch in enumerate(loop):
@@ -262,7 +263,7 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, de
         n_examples += len(labels)
 
         if pred_distill:
-            loss = soft_cross_entropy(student_logits, teacher_logits)
+            loss = criterion(student_logits, teacher_logits)
         else:
             # Compare student and teacher attention layers
             teacher_layer_num = len(teacher_atts)

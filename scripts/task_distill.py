@@ -29,6 +29,8 @@ def task_distill(config = None):
         # Initialize Student Model (General TinyBert)
         student_path = os.path.join('artifacts', config.student_model)
         student = TinyBertForSequenceClassification.from_pretrained(student_path, num_labels = 1)
+        print('Student Model')
+        print(student.config.to_dict())
 
         if not os.path.exists(os.path.join('artifacts', 'temp')):
             os.makedirs(os.path.join('artifacts', 'temp'))
@@ -102,8 +104,9 @@ def task_distill(config = None):
                 "epoch" : epoch
             })
 
-            # Checkpoint Best Model
-            if val_acc > best_accuracy:
+            
+            # If pred_distill Checkpoint Best Model else checkpoint every 5 epochs
+            if (config.pred_distill and (val_acc > best_accuracy)) or ((not config.pred_distill) and ((epoch+1)%5 == 0)):
                 checkpoint = {
                     'state_dict' : model.state_dict(),
                     'optimizer' : optimizer.state_dict(),
@@ -111,14 +114,19 @@ def task_distill(config = None):
                     'accuracy': val_acc,
                     'epoch': epoch
                 }
-
+                print('***Saving Checkpoint***')
                 torch.save(checkpoint, os.path.join('artifacts', 'temp', 'pytorch_model.bin'))
                 best_accuracy = val_acc
             
-            #Stop training when accuracy plateus.
-            early_stopping(val_acc)
-            if early_stopping.early_stop:
-                break
+            #Stop training when accuracy plateus (only on pred distil).
+            if config.pred_distill:
+                early_stopping(val_acc)
+                if early_stopping.early_stop:
+                    break
+            
+                    
+                    
+        
 
         # Testing
         model = TinyBertForSequenceClassification.from_pretrained(os.path.join('artifacts', 'temp'), num_labels = 1)
