@@ -18,23 +18,6 @@ FILES = {
         'USER' : 'khizon',
     }
 
-DISTILL_CONFIG = {
-        'PRED_DISTILL' : True,
-        'FILE_PATH' : os.path.join('data', 'nela_gt_2018_site_split'),
-        'DEVICE' : torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
-        'SEED' : 86,
-        'OUTPUT_DIR': '',
-        'MAX_LEN' : 512,
-        'EPOCHS' : 5,
-        'BATCH_SIZE' : 8,
-        'SAMPLE' : None,
-        'TITLE_ONLY' : False,
-        'STUDENT_MODEL' : '',
-        'LR' : 2E-5,
-        'WARMUP' : 0.1,
-        'TEMP' : 1
-}
-
 # Random Search Optimization
 sweep_config = {'method' : 'random'}
 
@@ -58,4 +41,18 @@ parameter_dict = {
     'seed' : {'value' : 86}
 }
 
-sweep_config['parameters'] = parameter_dict
+distill_dict = {
+    'learning_rate' : {'value' : 5e-5}, # modify
+    'epochs' : {'value' : 3},
+    'warmup' : {'value' : 0.06},
+    'weight_decay' : {'value' : 0.10},
+    'patience' : {'value': 3},
+    'min_delta' : {'value' : 0.005}, 
+    'sample' : {'value' : False}, # set to false for real training
+    'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
+    'model_name' : {'value' : 'bert-base-cased'}, # modify
+    'student_model' : {'value' : ''},
+    'teacher_model' : {'value' : 'BERT-title-content-benchmark:v0'},
+    'seed' : {'value' : 86},
+    'pred_distill' : {'value' : False}
+}

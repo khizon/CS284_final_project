@@ -175,5 +175,6 @@ def train(config = None):
 
 if __name__ == '__main__':
     transformers.logging.set_verbosity_info()
+    sweep_config['parameters'] = parameter_dict
     sweep_id = wandb.sweep(sweep_config, project = FILES['PROJECT'])
     wandb.agent(sweep_id, train, count=1)
