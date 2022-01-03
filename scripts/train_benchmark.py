@@ -71,10 +71,10 @@ def train(config = None):
         scaler = None
 
         # Save Model Config
-        if not os.path.exists(os.path.join('checkpoint')):
-                os.makedirs(os.path.join('checkpoint'))
+        if not os.path.exists(os.path.join('artifacts')):
+                os.makedirs(os.path.join('artifacts'))
             
-        with open(os.path.join('checkpoint', 'config.json'), 'w', encoding='utf-8') as f:
+        with open(os.path.join('artifacts', 'temp', 'config.json'), 'w', encoding='utf-8') as f:
             json.dump(model.config.to_dict(), f, ensure_ascii=False, indent=4)
 
         # Initialize Early Stopping
@@ -113,7 +113,7 @@ def train(config = None):
                 }
                 
                 # model.save_pretrained(os.path.join('checkpoint'))
-                torch.save(checkpoint, os.path.join('checkpoint', 'pytorch_model.bin'))
+                torch.save(checkpoint, os.path.join('artifacts', 'temp', 'pytorch_model.bin'))
                 best_accuracy = val_acc
             
             #Stop training when accuracy plateus.
@@ -127,7 +127,7 @@ def train(config = None):
         tokenizer, model = create_model(config.model_name, config.dropout)
         
         # Get weights of best model
-        checkpoint = torch.load(os.path.join('checkpoint', 'pytorch_model.bin'))
+        checkpoint = torch.load(os.path.join('artifacts', 'temp', 'pytorch_model.bin'))
         model.load_state_dict(checkpoint['state_dict'])
         if n_gpu > 1:
             model = torch.nn.DataParallel(model)
@@ -157,17 +157,14 @@ def train(config = None):
             "ave_time": ave_time
         })
 
-        if not os.path.exists(os.path.join('checkpoint')):
-            os.makedirs(os.path.join('checkpoint'))
-
-        with open(os.path.join('checkpoint', 'test_results.json'), 'w', encoding='utf-8') as f:
+        with open(os.path.join('artifacts', 'temp', 'test_results.json'), 'w', encoding='utf-8') as f:
             json.dump(test_results, f, ensure_ascii=False, indent=4)
 
         # Save model to weights and biases
         artifact = wandb.Artifact(FILES['MODEL_NAME'], type='model')
-        artifact.add_file(os.path.join('checkpoint', 'torch_checkpoint.bin'))
-        artifact.add_file(os.path.join('checkpoint', 'config.json'))
-        artifact.add_file(os.path.join('checkpoint', 'test_results.json'))
+        artifact.add_file(os.path.join('artifacts', 'temp', 'pytorch_model.bin'))
+        artifact.add_file(os.path.join('artifacts', 'temp', 'config.json'))
+        artifact.add_file(os.path.join('artifacts', 'temp', 'test_results.json'))
 
         run.log_artifact(artifact)
         run.join()

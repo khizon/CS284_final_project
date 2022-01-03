@@ -33,9 +33,8 @@ def task_distill(config = None):
         if not os.path.exists(os.path.join('artifacts', 'temp')):
             os.makedirs(os.path.join('artifacts', 'temp'))
         
-        # torch.save(student.config, os.path('artifacts', 'config.json'))
-        # with open(os.path.join('artifacts', 'temp', 'config.json'), 'w', encoding='utf-8') as f:
-        #     json.dump(student.config, f, ensure_ascii=False, indent=4)
+        with open(os.path.join('artifacts', 'temp', 'config.json'), 'w', encoding='utf-8') as f:
+            json.dump(student.config.to_dict(), f, ensure_ascii=False, indent=4)
 
         if n_gpu > 1:
             teacher = torch.nn.DataParallel(teacher)
@@ -73,14 +72,16 @@ def task_distill(config = None):
             },
             {"params": [p for n, p in student.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0},
         ]
+
         # Optimizer and Scheduler
-        schedule = 'warmup_linear' if not config.pred_distill else 'none'
+        optimizer = AdamW(optimizer_grouped_parameters, lr = config.learning_rate)
         total_steps = len(train_data_loader) * config.epochs
-        optimizer = BertAdam(optimizer_grouped_parameters,
-                             schedule=schedule,
-                             lr=config.learning_rate,
-                             warmup=int(total_steps * config.warmup),
-                             t_total=total_steps)
+        if config.pred_distill:
+            scheduler = get_linear_schedule_with_warmup(
+                optimizer,
+                num_warmup_steps =  int(total_steps * config.warmup),
+                num_training_steps = total_steps
+            )
 
         # Initialize early stopping
         best_accuracy = 0.0
@@ -94,10 +95,11 @@ def task_distill(config = None):
             val_acc, val_loss = eval_model(student, 'tiny-bert', val_data_loader, device)
 
             wandb.log({
-                'train acc' : train_acc,
-                'train acc' : train_loss,
-                'val_acc' : val_acc,
-                'val_loss' : val_loss
+                "train acc": train_acc,
+                "train_loss": train_loss,
+                "val acc": val_acc,
+                "val_loss": val_loss,
+                "epoch" : epoch
             })
 
             # Checkpoint Best Model
@@ -161,6 +163,7 @@ def task_distill(config = None):
         run.finish()
 
 if __name__ == '__main__':
+    torch.cuda.empty_cache()
     transformers.logging.set_verbosity_info()
     sweep_config['parameters'] = distill_dict
     sweep_id = wandb.sweep(sweep_config, project = FILES['PROJECT'])

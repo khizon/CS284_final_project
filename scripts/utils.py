@@ -14,6 +14,8 @@ from transformers import BertConfig, BertTokenizer, BertForSequenceClassificatio
 from transformers import DistilBertConfig, DistilBertTokenizer, DistilBertForSequenceClassification
 from transformers import AdamW, get_linear_schedule_with_warmup
 
+from transformer import TinyBertForSequenceClassification
+
 import pandas as pd
 import numpy as np
 import wandb
@@ -140,6 +142,10 @@ def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, 
         config.dropout = dropout
         config.num_labels = 1
         model = DistilBertForSequenceClassification(config)
+    elif model_name == 'tiny-bert':
+        tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
+        model_path = os.path.join('artifacts', '2nd_General_TinyBERT_6L_768D')
+        model = TinyBertForSequenceClassification.from_pretrained(model_path, num_labels = 1)
     if freeze_bert:
         for name, param in model.named_parameters():
             if 'classifier' not in name: # classifier layer
@@ -148,21 +154,7 @@ def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, 
         model.config.output_attentions = True
         model.config.output_hidden_states = True
     return tokenizer, model
-'''
-Initialize Student Teacher models
-'''
 
-def teacher_student_models(model_name):
-    pass
-
-    # Download teacher weights from WandB
-'''
-Soft Cross entropy loss
-'''
-def soft_cross_entropy(predicts, targets):
-    student_likelihood = torch.nn.functional.log_softmax(predicts, dim=-1)
-    targets_prob = torch.nn.functional.softmax(targets, dim=-1)
-    return (- targets_prob * student_likelihood).mean()
 '''
 Train Function
 '''
@@ -172,6 +164,9 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
     losses = []
     correct_predictions = 0
     n_examples = 0
+    
+    if model_name == 'tiny-bert':
+        criterion = torch.nn.BCEWithLogitsLoss()
 
     loop = tqdm(data_loader)
     for idx, batch in enumerate(loop):
@@ -200,7 +195,7 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
                             labels = labels)
 
         if model_name == 'tiny-bert':
-            loss = soft_cross_entropy(logits, labels)
+            loss = criterion(logits, labels)
             preds = torch.round(logits)
         else:
             loss = outputs['loss']
@@ -320,6 +315,9 @@ def eval_model(model, model_name, data_loader, device):
     losses = []
     correct_predictions = 0
     n_examples = 0
+    
+    if model_name == 'tiny-bert':
+        criterion = torch.nn.BCEWithLogitsLoss()
 
     with torch.no_grad():
         loop = tqdm(data_loader)
@@ -345,7 +343,7 @@ def eval_model(model, model_name, data_loader, device):
                                 labels = labels)
 
             if model_name == 'tiny-bert':
-                loss = soft_cross_entropy(logits, labels)
+                loss = criterion(logits, labels)
                 preds = torch.round(logits)
             else:
                 loss = outputs['loss']
