@@ -50,7 +50,7 @@ def task_distill(config = None):
             os.path.join(config.dataset_path, 'train.jsonl'),
             tokenizer,
             max_len = 512,
-            batch_size = 8 * max(1, n_gpu),
+            batch_size = config.batch_size * max(1, n_gpu),
             shuffle=True,
             sample = config.sample,
             title_only = False
@@ -60,7 +60,7 @@ def task_distill(config = None):
             os.path.join(config.dataset_path, 'val.jsonl'),
             tokenizer,
             max_len = 512,
-            batch_size = 8 * max(1, n_gpu),
+            batch_size = config.batch_size * max(1, n_gpu),
             sample = config.sample,
             title_only = False
         )

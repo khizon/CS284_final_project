@@ -13,7 +13,7 @@ Change MODEL_NAME when using different settings
 
 FILES = {
         'PROJECT' : 'UnreliableNews',
-        'MODEL_NAME' : 'tinybert-test',
+        'MODEL_NAME' : 'tinybert-layer-4L-312D',
         'VERSION' : 'v6',
         'USER' : 'khizon',
     }
@@ -43,14 +43,15 @@ parameter_dict = {
 
 distill_dict = {
     'learning_rate' : {'value' : 5e-5}, # modify
-    'epochs' : {'value' : 3},
+    'epochs' : {'value' : 10},
     'warmup' : {'value' : 0.06},
     'weight_decay' : {'value' : 0.10},
     'patience' : {'value': 10},
-    'min_delta' : {'value' : 0.005}, 
-    'sample' : {'value' : 32}, # set to false for real training
+    'min_delta' : {'value' : 0.005},
+    'batch_size' : {'value' : 32}, # modify
+    'sample' : {'value' : False}, # set to false for real training
     'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
-    'student_model' : {'value' : '2nd_General_TinyBERT_4L_312D'},
+    'student_model' : {'value' : 'tinybert-layer-4L-312D:v0'},
     'teacher_model' : {'value' : 'BERT-title-content-benchmark:v0'},
     'seed' : {'value' : 86},
     'pred_distill' : {'value' : False},
