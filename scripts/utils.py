@@ -265,7 +265,10 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, de
         n_examples += len(labels)
 
         if pred_distill:
-            loss = criterion(student_logits, teacher_logits)
+            alpha = 0.7
+            distill_loss = loss_mse(student_logits, teacher_logits)
+            student_loss = criterion(student_logits, labels)
+            loss = alpha * distill_loss + (1-alpha) * student_loss
         else:
             # Compare student and teacher attention layers
             teacher_layer_num = len(teacher_atts)

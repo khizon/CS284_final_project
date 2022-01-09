@@ -20,7 +20,7 @@ if __name__ == '__main__':
     run = wandb.init()
     artifact = run.use_artifact('khizon/UnreliableNews/BERT-title-content-benchmark:v0', type='model')
     artifact_dir = artifact.download()
-    artifact = run.use_artifact('khizon/UnreliableNews/tinybert-layer-4L-312D:v0', type='model')
+    artifact = run.use_artifact('khizon/UnreliableNews/tinybert-layer-4L-312D:v1', type='model')
     artifact_dir = artifact.download()
     run.finish()
     
