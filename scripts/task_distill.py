@@ -88,13 +88,16 @@ def task_distill(config = None):
         # Initialize early stopping
         best_accuracy = 0.0
         early_stopping = EarlyStopping(patience = config.patience, min_delta = config.min_delta)
+        train_acc, train_loss = 0, 0
+        val_acc, val_loss = 0, 0
 
         for epoch in range(config.epochs):
             print(f'Distillation {epoch + 1}/{config.epochs}:')
 
             train_acc, train_loss = distill_train_epoch(student, teacher, train_data_loader, optimizer, device, config.pred_distill)
 
-            val_acc, val_loss = eval_model(student, 'tiny-bert', val_data_loader, device)
+            if config.do_eval:
+                val_acc, val_loss = eval_model(student, 'tiny-bert', val_data_loader, device)
 
             wandb.log({
                 "train acc": train_acc,

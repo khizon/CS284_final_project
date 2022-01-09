@@ -42,18 +42,19 @@ parameter_dict = {
 }
 
 distill_dict = {
-    'learning_rate' : {'value' : 5e-5}, # modify
+    'learning_rate' : {'value' : 2e-5}, # modify
     'epochs' : {'value' : 10},
     'warmup' : {'value' : 0.06},
     'weight_decay' : {'value' : 0.10},
-    'patience' : {'value': 10},
+    'patience' : {'value': 3},
     'min_delta' : {'value' : 0.005},
-    'batch_size' : {'value' : 32}, # modify
-    'sample' : {'value' : False}, # set to false for real training
+    'batch_size' : {'value' : 8}, # modify
+    'sample' : {'value' : None}, # set to false for real training
     'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
-    'student_model' : {'value' : 'tinybert-layer-4L-312D:v0'},
+    'student_model' : {'value' : 'tinybert-layer-4L-312D:v1'},
     'teacher_model' : {'value' : 'BERT-title-content-benchmark:v0'},
     'seed' : {'value' : 86},
-    'pred_distill' : {'value' : False},
-    'student_dimension' : {'value' : 312}
+    'pred_distill' : {'value' : True},
+    'student_dimension' : {'value' : 312},
+    'do_eval' : {'value' : True}
 }

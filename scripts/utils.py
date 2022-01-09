@@ -258,6 +258,8 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, de
 
 
         # Compute Student accuracy
+        # print(f'teacher:{teacher_logits}')
+        # print(f'student:{student_logits}')
         preds = torch.round(student_logits)
         correct_predictions += (preds == labels).sum().item()
         n_examples += len(labels)
