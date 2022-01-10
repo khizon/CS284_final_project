@@ -271,14 +271,14 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, de
         # break
 
         if pred_distill:
-            # distill_loss = loss_mse(student_logits, teacher_logits)
-            # student_loss = loss_mse(student_logits, labels)
-            for student_logit, label in zip(student_logits, labels):
-                tmp_loss = loss_mse(student_logit, label)
-                stud_loss += tmp_loss
-            for student_logit, teacher_logit in zip(student_logits, teacher_logits):
-                tmp_loss = loss_mse(student_logit, teacher_logit)
-                cls_loss += tmp_loss
+            cls_loss = loss_mse(student_logits, teacher_logits)
+            stud_loss = loss_mse(student_logits, labels)
+            # for student_logit, label in zip(student_logits, labels):
+            #     tmp_loss = loss_mse(student_logit, label)
+            #     stud_loss += tmp_loss
+            # for student_logit, teacher_logit in zip(student_logits, teacher_logits):
+            #     tmp_loss = loss_mse(student_logit, teacher_logit)
+            #     cls_loss += tmp_loss
             loss = alpha * cls_loss + (1-alpha) * stud_loss
         else:
             # Compare student and teacher attention layers

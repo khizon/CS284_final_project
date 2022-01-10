@@ -8,6 +8,7 @@ from transformer.optimization import BertAdam
 from transformer.file_utils import WEIGHTS_NAME, CONFIG_NAME
 
 import transformers
+from transformers import DistilBertForSequenceClassification, DistilBertConfig
 
 from utils import *
 from constants import *
@@ -27,8 +28,6 @@ def task_distill(config = None):
         teacher.load_state_dict(checkpoint['state_dict'])
 
         # Initialize Student Model (Distilbert)
-        # student_path = os.path.join('artifacts', config.student_model)
-        # student = TinyBertForSequenceClassification.from_pretrained(student_path, num_labels = 1)
         _, student = create_model('distilbert-base-cased', distill=True)
 
         if not os.path.exists(os.path.join('artifacts', 'temp')):
@@ -110,7 +109,7 @@ def task_distill(config = None):
             # If pred_distill Checkpoint Best Model else checkpoint every 5 epochs
             if (config.pred_distill and (val_acc > best_accuracy)) or ((not config.pred_distill) and ((epoch+1)%5 == 0)):
                 checkpoint = {
-                    'state_dict' : model.state_dict(),
+                    'state_dict' : student.state_dict(),
                     'optimizer' : optimizer.state_dict(),
                     'loss' : val_loss,
                     'accuracy': val_acc,
@@ -131,9 +130,10 @@ def task_distill(config = None):
         
 
         # Testing
-        model = TinyBertForSequenceClassification.from_pretrained(os.path.join('artifacts', 'temp'), num_labels = 1)
-        # checkpoint = torch.load(os.path.join('artifacts', 'pytorch_model.bin'),map_location=torch.device(device))
-        # model.load_state_dict(checkpoint['state_dict'])
+        config = DistilBertConfig.from_pretrained(os.path.join('artifacts', 'temp'))
+        config.dropout = dropout
+        config.num_labels = 1
+        model = DistilBertForSequenceClassification.from_pretrained(config)
 
         model.to(device)
 
@@ -147,7 +147,7 @@ def task_distill(config = None):
             title_only = False
         )
         
-        y_pred, y_test, test_acc, ave_time = get_predictions(model, 'tiny-bert', test_data_loader, device)
+        y_pred, y_test, test_acc, ave_time = get_predictions(model, 'distilbert-base-cased', test_data_loader, device)
 
         test_results = {
             'predictions': y_pred,
