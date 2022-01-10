@@ -196,28 +196,22 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
 
         if model_name == 'tiny-bert':
             loss = criterion(logits, labels)
-            preds = torch.round(logits)
+            preds = torch.round(logits.detach())
         else:
             loss = outputs['loss']
-            preds = torch.round(outputs['logits'])
+            preds = torch.round(outputs['logits'].detach())
 
         if n_gpu > 1:
             loss = loss.mean()
-        
 
+        loss.backward()
+        nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        optimizer.step()
+        scheduler.step()
+        
         correct_predictions += (preds == labels).sum().item()
         n_examples += len(labels)
         losses.append(loss.item())
-
-        # scaler.scale(loss).backward()
-        loss.backward()
-        # Unscales the gradients of optimizer's assigned params in-place
-        # scaler.unscale_(optimizer)
-        nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.step()
-        # scaler.step(optimizer)
-        # scaler.update()
-        scheduler.step()
 
         loop.set_postfix(train_loss = np.mean(losses), train_acc = float(correct_predictions/n_examples))
 
@@ -227,13 +221,14 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
 Soft Cross Entropy
 '''
 def soft_cross_entropy(predicts, targets):
-    student_likelihood = torch.nn.functional.softmax(predicts, dim=-1)
+    KD_loss = nn.KLDivLoss(reduction = 'batchmean')
+    student_likelihood = torch.nn.functional.log_softmax(predicts, dim=-1)
     targets_prob = torch.nn.functional.softmax(targets, dim=-1)
-    return (- targets_prob * student_likelihood).mean()
+    return KD_loss(input = student_likelihood, target = targets_prob)
 '''
 Distillation Training Function
 '''
-def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, device, alpha=0.5, pred_distill=False):
+def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, scheduler, device, alpha=0.5, pred_distill=False):
     student_model.train()
     teacher_model.eval()
     n_gpu = torch.cuda.device_count()
@@ -255,11 +250,11 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, de
         attention_mask = batch['attention_mask'].to(device)
         token_type_ids = batch['token_type_ids'].to(device)
         labels = batch['labels'].to(device).unsqueeze(1)
+        
+        student_model.zero_grad()
+        optimizer.zero_grad()
 
-        outputs = student_model(input_ids = input_ids, attention_mask = attention_mask)
-        student_logits = outputs['logits']
-        student_atts = outputs['attentions']
-        student_reps = outputs['hidden_states']
+        student_logits, student_atts, student_reps = student_model(input_ids = input_ids, attention_mask = attention_mask, token_type_ids = token_type_ids)
 
         with torch.no_grad():
             outputs = teacher_model(input_ids, token_type_ids, attention_mask)
@@ -271,15 +266,10 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, de
         # break
 
         if pred_distill:
-            cls_loss = loss_mse(student_logits, teacher_logits)
             stud_loss = loss_mse(student_logits, labels)
-            # for student_logit, label in zip(student_logits, labels):
-            #     tmp_loss = loss_mse(student_logit, label)
-            #     stud_loss += tmp_loss
-            # for student_logit, teacher_logit in zip(student_logits, teacher_logits):
-            #     tmp_loss = loss_mse(student_logit, teacher_logit)
-            #     cls_loss += tmp_loss
+            cls_loss = loss_mse(student_logits, teacher_logits)
             loss = alpha * cls_loss + (1-alpha) * stud_loss
+            pass
         else:
             # Compare student and teacher attention layers
             teacher_layer_num = len(teacher_atts)
@@ -307,22 +297,26 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, de
                 rep_loss += tmp_loss
 
             loss = rep_loss + att_loss
-        # tr_rep_losses.append(rep_loss.item())
-        # tr_att_losses.append(att_loss.item())
         
         if n_gpu > 1:
             loss = loss.mean()  # mean() to average on multi-gpu.
+        
         losses.append(loss.item())
         
         loss.backward()
         
+        
+        
+        nn.utils.clip_grad_norm_(student_model.parameters(), max_norm=1.0)
+        optimizer.step()
+        
+        if pred_distill:
+            scheduler.step()
+        
         # Compute Student accuracy
-        preds = torch.round(student_logits)
+        preds = torch.round(student_logits.detach())
         correct_predictions += (preds == labels).sum().item()
         n_examples += len(labels)
-        
-        optimizer.step()
-        optimizer.zero_grad()
         
         loop.set_postfix(train_loss = np.mean(losses), train_acc = float(correct_predictions/n_examples))
 

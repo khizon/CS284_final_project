@@ -13,7 +13,7 @@ Change MODEL_NAME when using different settings
 
 FILES = {
         'PROJECT' : 'UnreliableNews',
-        'MODEL_NAME' : 'distilbert-test',
+        'MODEL_NAME' : 'TinyBERT_4L_312D',
         'VERSION' : 'v6',
         'USER' : 'khizon',
     }
@@ -31,13 +31,13 @@ parameter_dict = {
     'batch_size' : {'value' : 8}, # modify
     'dropout' : {'value' : 0.10},
     'weight_decay' : {'value' : 0.10},
-    'patience' : {'value': 3},
+    'patience' : {'value': 10},
     'min_delta' : {'value' : 0.005}, 
-    'sample' : {'value' : False}, # set to false for real training
+    'sample' : {'value' : 32}, # set to false for real training
     'title_only' : {'value' : False}, # modify
     'freeze_bert' : {'value' : False},
     'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
-    'model_name' : {'value' : 'tiny-bert'}, # modify
+    'model_name' : {'value' : 'distilbert-base-cased'}, # modify
     'seed' : {'value' : 86}
 }
 
@@ -46,15 +46,15 @@ distill_dict = {
     'epochs' : {'value' : 20},
     'warmup' : {'value' : 0.06},
     'weight_decay' : {'value' : 0.10},
-    'patience' : {'value': 100},
+    'patience' : {'value': 20},
     'min_delta' : {'value' : 0.005},
     'batch_size' : {'value' : 8}, # modify
-    'sample' : {'value' : 8}, # set to false for real training
+    'sample' : {'value' : False}, # set to false for real training
     'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
-    'student_model' : {'value' : 'tinybert-layer-4L-312D:v1'},
+    'student_model' : {'value' : '2nd_General_TinyBERT_4L_312D'},
     'teacher_model' : {'value' : 'BERT-title-content-benchmark:v0'},
     'seed' : {'value' : 86},
-    'pred_distill' : {'value' : True},
+    'pred_distill' : {'value' : False},
     'alpha' : {'value' : 0.5},
-    'do_eval' : {'value' : True}
+    'do_eval' : {'value' : False}
 }

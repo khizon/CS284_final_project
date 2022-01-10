@@ -27,8 +27,10 @@ def task_distill(config = None):
         checkpoint = torch.load(os.path.join('artifacts', config.teacher_model, 'pytorch_model.bin'), map_location=torch.device(device))
         teacher.load_state_dict(checkpoint['state_dict'])
 
-        # Initialize Student Model (Distilbert)
-        _, student = create_model('distilbert-base-cased', distill=True)
+        # Initialize Student Model (TinyBert)
+        student_path = os.path.join('artifacts', config.student_model)
+        student = TinyBertForSequenceClassification.from_pretrained(student_path, num_labels = 1)
+        print(student.config.to_dict())
 
         if not os.path.exists(os.path.join('artifacts', 'temp')):
             os.makedirs(os.path.join('artifacts', 'temp'))
@@ -77,11 +79,14 @@ def task_distill(config = None):
         optimizer = AdamW(optimizer_grouped_parameters, lr = config.learning_rate)
         total_steps = len(train_data_loader) * config.epochs
         if config.pred_distill:
+            print('Pred distil')
             scheduler = get_linear_schedule_with_warmup(
                 optimizer,
                 num_warmup_steps =  int(total_steps * config.warmup),
                 num_training_steps = total_steps
             )
+        else:
+            scheduler = None
 
         # Initialize early stopping
         best_accuracy = 0.0
@@ -92,10 +97,10 @@ def task_distill(config = None):
         for epoch in range(config.epochs):
             print(f'Distillation {epoch + 1}/{config.epochs}:')
 
-            train_acc, train_loss = distill_train_epoch(student, teacher, train_data_loader, optimizer, device, config.alpha, config.pred_distill)
+            train_acc, train_loss = distill_train_epoch(student, teacher, train_data_loader, optimizer, scheduler, device, config.alpha, config.pred_distill)
 
             if config.do_eval:
-                val_acc, val_loss = eval_model(student, 'distilbert-base-cased', val_data_loader, device)
+                val_acc, val_loss = eval_model(student, 'tiny-bert', val_data_loader, device)
 
             wandb.log({
                 "train acc": train_acc,
@@ -130,10 +135,9 @@ def task_distill(config = None):
         
 
         # Testing
-        config = DistilBertConfig.from_pretrained(os.path.join('artifacts', 'temp'))
-        config.dropout = dropout
-        config.num_labels = 1
-        model = DistilBertForSequenceClassification.from_pretrained(config)
+        
+        model_path = os.path.join('artifacts', 'temp')
+        model = TinyBertForSequenceClassification.from_pretrained(student_path, num_labels = 1)
 
         model.to(device)
 
@@ -147,7 +151,7 @@ def task_distill(config = None):
             title_only = False
         )
         
-        y_pred, y_test, test_acc, ave_time = get_predictions(model, 'distilbert-base-cased', test_data_loader, device)
+        y_pred, y_test, test_acc, ave_time = get_predictions(model, 'tiny-bert', test_data_loader, device)
 
         test_results = {
             'predictions': y_pred,
