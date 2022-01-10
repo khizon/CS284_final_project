@@ -224,9 +224,16 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
     return correct_predictions/n_examples, np.mean(losses)
 
 '''
+Soft Cross Entropy
+'''
+def soft_cross_entropy(predicts, targets):
+    student_likelihood = torch.nn.functional.softmax(predicts, dim=-1)
+    targets_prob = torch.nn.functional.softmax(targets, dim=-1)
+    return (- targets_prob * student_likelihood).mean()
+'''
 Distillation Training Function
 '''
-def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, device, pred_distill=False):
+def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, device, alpha=0.5, pred_distill=False):
     student_model.train()
     teacher_model.eval()
     n_gpu = torch.cuda.device_count()
@@ -236,12 +243,13 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, de
     n_examples = 0
 
     loss_mse = MSELoss()
-    criterion = torch.nn.BCEWithLogitsLoss()
 
     loop = tqdm(data_loader)
     for step, batch in enumerate(loop):
         att_loss = 0.0
         rep_loss = 0.0
+        cls_loss = 0.0
+        stud_loss = 0.0
 
         input_ids = batch['input_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
@@ -255,20 +263,20 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, de
             teacher_logits = outputs['logits']
             teacher_atts = outputs['attentions']
             teacher_reps = outputs['hidden_states']
-
-
-        # Compute Student accuracy
-        # print(f'teacher:{teacher_logits}')
-        # print(f'student:{student_logits}')
-        preds = torch.round(student_logits)
-        correct_predictions += (preds == labels).sum().item()
-        n_examples += len(labels)
+        
+        # print(f'Student Logits: {student_logits} Teacher Logits: {teacher_logits} Labels: {labels}')
+        # break
 
         if pred_distill:
-            alpha = 0.7
-            distill_loss = loss_mse(student_logits, teacher_logits)
-            student_loss = criterion(student_logits, labels)
-            loss = alpha * distill_loss + (1-alpha) * student_loss
+            # distill_loss = loss_mse(student_logits, teacher_logits)
+            # student_loss = loss_mse(student_logits, labels)
+            for student_logit, label in zip(student_logits, labels):
+                tmp_loss = loss_mse(student_logit, label)
+                stud_loss += tmp_loss
+            for student_logit, teacher_logit in zip(student_logits, teacher_logits):
+                tmp_loss = loss_mse(student_logit, teacher_logit)
+                cls_loss += tmp_loss
+            loss = alpha * cls_loss + (1-alpha) * stud_loss
         else:
             # Compare student and teacher attention layers
             teacher_layer_num = len(teacher_atts)
@@ -304,9 +312,15 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, de
         losses.append(loss.item())
         
         loss.backward()
+        
+        # Compute Student accuracy
+        preds = torch.round(student_logits)
+        correct_predictions += (preds == labels).sum().item()
+        n_examples += len(labels)
+        
         optimizer.step()
         optimizer.zero_grad()
-
+        
         loop.set_postfix(train_loss = np.mean(losses), train_acc = float(correct_predictions/n_examples))
 
     return correct_predictions/n_examples, np.mean(losses)

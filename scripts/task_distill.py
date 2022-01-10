@@ -94,7 +94,7 @@ def task_distill(config = None):
         for epoch in range(config.epochs):
             print(f'Distillation {epoch + 1}/{config.epochs}:')
 
-            train_acc, train_loss = distill_train_epoch(student, teacher, train_data_loader, optimizer, device, config.pred_distill)
+            train_acc, train_loss = distill_train_epoch(student, teacher, train_data_loader, optimizer, device, config.alpha, config.pred_distill)
 
             if config.do_eval:
                 val_acc, val_loss = eval_model(student, 'tiny-bert', val_data_loader, device)
