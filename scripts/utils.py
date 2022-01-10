@@ -256,7 +256,10 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, de
         token_type_ids = batch['token_type_ids'].to(device)
         labels = batch['labels'].to(device).unsqueeze(1)
 
-        student_logits, student_atts, student_reps = student_model(input_ids, token_type_ids, attention_mask, is_student=True)
+        outputs = student_model(input_ids = input_ids, attention_mask = attention_mask)
+        student_logits = outputs['logits']
+        student_atts = outputs['attentions']
+        student_reps = outputs['hidden_states']
 
         with torch.no_grad():
             outputs = teacher_model(input_ids, token_type_ids, attention_mask)

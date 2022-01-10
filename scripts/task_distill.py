@@ -22,15 +22,14 @@ def task_distill(config = None):
         n_gpu = torch.cuda.device_count()
 
         # Initialize Tokenizer and Teacher Model
-        tokenizer, teacher = tokenizer, model = create_model('bert-base-cased', distill = True)
+        tokenizer, teacher = create_model('bert-base-cased', distill = True)
         checkpoint = torch.load(os.path.join('artifacts', config.teacher_model, 'pytorch_model.bin'), map_location=torch.device(device))
         teacher.load_state_dict(checkpoint['state_dict'])
 
-        # Initialize Student Model (General TinyBert)
-        student_path = os.path.join('artifacts', config.student_model)
-        student = TinyBertForSequenceClassification.from_pretrained(student_path, num_labels = 1)
-        print('Student Model')
-        print(student.config.to_dict())
+        # Initialize Student Model (Distilbert)
+        # student_path = os.path.join('artifacts', config.student_model)
+        # student = TinyBertForSequenceClassification.from_pretrained(student_path, num_labels = 1)
+        _, student = create_model('distilbert-base-cased', distill=True)
 
         if not os.path.exists(os.path.join('artifacts', 'temp')):
             os.makedirs(os.path.join('artifacts', 'temp'))
@@ -97,7 +96,7 @@ def task_distill(config = None):
             train_acc, train_loss = distill_train_epoch(student, teacher, train_data_loader, optimizer, device, config.alpha, config.pred_distill)
 
             if config.do_eval:
-                val_acc, val_loss = eval_model(student, 'tiny-bert', val_data_loader, device)
+                val_acc, val_loss = eval_model(student, 'distilbert-base-cased', val_data_loader, device)
 
             wandb.log({
                 "train acc": train_acc,

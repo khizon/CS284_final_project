@@ -13,7 +13,7 @@ Change MODEL_NAME when using different settings
 
 FILES = {
         'PROJECT' : 'UnreliableNews',
-        'MODEL_NAME' : 'tinybert-layer-4L-312D-test',
+        'MODEL_NAME' : 'distilbert-test',
         'VERSION' : 'v6',
         'USER' : 'khizon',
     }
@@ -43,7 +43,7 @@ parameter_dict = {
 
 distill_dict = {
     'learning_rate' : {'value' : 5e-5}, # modify
-    'epochs' : {'value' : 100},
+    'epochs' : {'value' : 20},
     'warmup' : {'value' : 0.06},
     'weight_decay' : {'value' : 0.10},
     'patience' : {'value': 100},
