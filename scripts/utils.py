@@ -129,7 +129,7 @@ def create_reliable_news_dataloader(file_path, tokenizer, max_len=128, batch_siz
 '''
 Create Model
 '''
-def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, student_dim = None):
+def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, num_layers = None):
     if model_name == 'bert-base-cased':
         tokenizer = BertTokenizer.from_pretrained(model_name)
         config = BertConfig.from_pretrained(model_name)
@@ -141,6 +141,8 @@ def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, 
         config = DistilBertConfig.from_pretrained(model_name)
         config.dropout = dropout
         config.num_labels = 1
+        if num_layers:
+            config.num_layers = num_layers
         model = DistilBertForSequenceClassification(config)
     elif model_name == 'tiny-bert':
         tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
@@ -228,7 +230,8 @@ def soft_cross_entropy(predicts, targets):
 '''
 Distillation Training Function
 '''
-def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, scheduler, device, alpha=0.5, pred_distill=False):
+def distill_train_epoch(student_model, teacher_model, student_name, data_loader, optimizer, scheduler, device, alpha=0.5, pred_distill=False):
+    tinyBert = ['2nd_General_TinyBERT_4L_312D', '2nd_General_TinyBERT_6L_674D']
     student_model.train()
     teacher_model.eval()
     n_gpu = torch.cuda.device_count()
@@ -254,22 +257,26 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, sc
         student_model.zero_grad()
         optimizer.zero_grad()
 
-        student_logits, student_atts, student_reps = student_model(input_ids = input_ids, attention_mask = attention_mask, token_type_ids = token_type_ids)
+        if student_name in tinyBert:
+            student_logits, student_atts, student_reps = student_model(input_ids = input_ids, attention_mask = attention_mask, token_type_ids = token_type_ids)
+        elif student_name == 'distilbert-base-cased':
+            outputs = model(input_ids = input_ids, attention_mask = attention_mask, labels = labels)
+            student_logits = outputs['logtis']
+            student_atts = outputs['attentions']
+            student_reps = outputs['hidden_states']
+            stud_loss = outputs['loss']
 
         with torch.no_grad():
             outputs = teacher_model(input_ids, token_type_ids, attention_mask)
             teacher_logits = outputs['logits']
             teacher_atts = outputs['attentions']
             teacher_reps = outputs['hidden_states']
-        
-        # print(f'Student Logits: {student_logits} Teacher Logits: {teacher_logits} Labels: {labels}')
-        # break
 
         if pred_distill:
-            stud_loss = loss_mse(student_logits, labels)
+            if student_name in tinyBert:
+                stud_loss = loss_mse(student_logits, labels)
             cls_loss = loss_mse(student_logits, teacher_logits)
             loss = alpha * cls_loss + (1-alpha) * stud_loss
-            pass
         else:
             # Compare student and teacher attention layers
             teacher_layer_num = len(teacher_atts)
@@ -304,9 +311,7 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, sc
         losses.append(loss.item())
         
         loss.backward()
-        
-        
-        
+
         nn.utils.clip_grad_norm_(student_model.parameters(), max_norm=1.0)
         optimizer.step()
         
@@ -326,6 +331,7 @@ def distill_train_epoch(student_model, teacher_model, data_loader, optimizer, sc
 Evaluation Function
 '''
 def eval_model(model, model_name, data_loader, device):
+    tinyBert = ['2nd_General_TinyBERT_4L_312D', '2nd_General_TinyBERT_6L_674D']
     model = model.eval()
     n_gpu = torch.cuda.device_count()
 
@@ -353,13 +359,13 @@ def eval_model(model, model_name, data_loader, device):
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
                                 labels = labels)
-            elif model_name == 'tiny-bert':
+            elif model_name in tinyBert:
                 logits, _, _ = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
                                 token_type_ids = token_type_ids,
                                 labels = labels)
 
-            if model_name == 'tiny-bert':
+            if model_name in tinyBert:
                 loss = criterion(logits, labels)
                 preds = torch.round(logits)
             else:
@@ -381,6 +387,7 @@ def eval_model(model, model_name, data_loader, device):
 Get Predictions
 '''
 def get_predictions(model, model_name, data_loader, device):
+    tinyBert = ['2nd_General_TinyBERT_4L_312D', '2nd_General_TinyBERT_6L_674D']
     model = model.eval()
     
     predictions = []
@@ -413,7 +420,7 @@ def get_predictions(model, model_name, data_loader, device):
                                 attention_mask = attention_mask,
                                 labels = labels)
                 end = time.perf_counter()
-            elif model_name == 'tiny-bert':
+            elif model_name in tinyBert:
                 start = time.perf_counter()
                 logits, _, _ = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
@@ -423,7 +430,7 @@ def get_predictions(model, model_name, data_loader, device):
             
             timings.append(end-start)
 
-            if model_name == 'tiny-bert':
+            if model_name in tinyBert:
                 preds = torch.round(logits)
             else:
                 preds = torch.round(outputs['logits'])

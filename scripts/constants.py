@@ -51,10 +51,11 @@ distill_dict = {
     'batch_size' : {'value' : 8}, # modify
     'sample' : {'value' : False}, # set to false for real training
     'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
-    'student_model' : {'value' : '2nd_General_TinyBERT_4L_312D'},
+    'student_model' : {'value' : 'distilbert-base-cased'},
+    'num_layers' : {'value' : 4},
     'teacher_model' : {'value' : 'BERT-title-content-benchmark:v0'},
     'seed' : {'value' : 86},
-    'pred_distill' : {'value' : False},
+    'pred_distill' : {'value' : True},
     'alpha' : {'value' : 0.5},
     'do_eval' : {'value' : False}
 }
