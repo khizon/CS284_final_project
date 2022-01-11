@@ -71,8 +71,8 @@ def train(config = None):
         scaler = None
 
         # Save Model Config
-        if not os.path.exists(os.path.join('artifacts')):
-                os.makedirs(os.path.join('artifacts'))
+        if not os.path.exists(os.path.join('artifacts', 'temp')):
+                os.makedirs(os.path.join('artifacts', 'temp'))
             
         with open(os.path.join('artifacts', 'temp', 'config.json'), 'w', encoding='utf-8') as f:
             json.dump(model.config.to_dict(), f, ensure_ascii=False, indent=4)

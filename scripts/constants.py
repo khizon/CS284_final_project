@@ -13,7 +13,7 @@ Change MODEL_NAME when using different settings
 
 FILES = {
         'PROJECT' : 'UnreliableNews',
-        'MODEL_NAME' : 'TinyBERT_4L_312D',
+        'MODEL_NAME' : 'bert-test',
         'VERSION' : 'v6',
         'USER' : 'khizon',
     }
@@ -31,7 +31,7 @@ parameter_dict = {
     'batch_size' : {'value' : 8}, # modify
     'dropout' : {'value' : 0.10},
     'weight_decay' : {'value' : 0.10},
-    'patience' : {'value': 10},
+    'patience' : {'value': 3},
     'min_delta' : {'value' : 0.005}, 
     'sample' : {'value' : 8}, # set to false for real training
     'title_only' : {'value' : False}, # modify
