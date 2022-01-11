@@ -82,6 +82,7 @@ class ReliableNewsDataset(Dataset):
         data_row = self.data.iloc[index]
         
         labels = data_row[['label_0', 'label_1']]
+        labels = torch.tensor(labels, dtype=torch.float32)
         if self.title_only:
             encoding = self.tokenizer.encode_plus(
                 data_row.title,
@@ -111,7 +112,7 @@ class ReliableNewsDataset(Dataset):
             input_ids = encoding['input_ids'].flatten(),
             attention_mask = encoding['attention_mask'].flatten(),
             token_type_ids = encoding['token_type_ids'].flatten(),
-            labels = torch.tensor(labels, dtype=torch.float32)
+            labels = labels
         )
 
 def create_reliable_news_dataloader(file_path, tokenizer, max_len=128, batch_size=8, shuffle=False, sample = None, title_only = True):

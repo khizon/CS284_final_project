@@ -103,6 +103,7 @@ def train(config = None):
 
             # Checkpoint Best Model
             if val_acc > best_accuracy:
+                print('*** Saving Checkpoint ***')
                 checkpoint = {
                     'state_dict' : model.state_dict(),
                     'optimizer' : optimizer.state_dict(),
