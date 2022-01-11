@@ -81,7 +81,7 @@ class ReliableNewsDataset(Dataset):
     def __getitem__(self, index):
         data_row = self.data.iloc[index]
         
-        labels = data_row.label
+        labels = data_row[['label_0', 'label_1']]
         if self.title_only:
             encoding = self.tokenizer.encode_plus(
                 data_row.title,
@@ -122,6 +122,7 @@ def create_reliable_news_dataloader(file_path, tokenizer, max_len=128, batch_siz
     # Load only a partial dataset
     if sample:
         df = df.sample(sample)
+    df = pd.get_dummies(df, columns = ['label'])
     
     ds = ReliableNewsDataset(df, tokenizer, max_token_len = max_len, title_only = title_only)
     return DataLoader(ds, batch_size = batch_size, shuffle=shuffle)
@@ -132,14 +133,14 @@ Create Model
 def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, n_layers = None):
     if model_name == 'bert-base-cased':
         tokenizer = BertTokenizer.from_pretrained(model_name)
-        model = BertForSequenceClassification.from_pretrained(model_name, classifier_dropout = dropout, num_labels = 1)
+        model = BertForSequenceClassification.from_pretrained(model_name, classifier_dropout = dropout, num_labels = 2)
     elif model_name == 'distilbert-base-cased':
         tokenizer = DistilBertTokenizer.from_pretrained(model_name)
-        model = DistilBertForSequenceClassification.from_pretrained(model_name, dropout = dropout, num_labels = 1, n_layers = n_layers)
+        model = DistilBertForSequenceClassification.from_pretrained(model_name, dropout = dropout, num_labels = 2, n_layers = n_layers)
     elif model_name == 'tiny-bert':
         tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
         model_path = os.path.join('artifacts', '2nd_General_TinyBERT_6L_768D')
-        model = TinyBertForSequenceClassification.from_pretrained(model_path, num_labels = 1)
+        model = TinyBertForSequenceClassification.from_pretrained(model_path, num_labels = 2)
     if freeze_bert:
         for name, param in model.named_parameters():
             if 'classifier' not in name: # classifier layer
@@ -148,6 +149,16 @@ def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, 
         model.config.output_attentions = True
         model.config.output_hidden_states = True
     return tokenizer, model
+
+'''
+Simple accuracy
+'''
+def correct_preds(preds, labels):
+    preds = torch.nn.functional.softmax(preds, dim = 1)
+    p_idx = torch.argmax(preds, dim=1)
+    l_idx = torch.argmax(labels, dim=1)
+    return (p_idx == l_idx).sum().item()
+    
 
 '''
 Train Function
@@ -167,8 +178,8 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
         input_ids = batch['input_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
         token_type_ids = batch['token_type_ids'].to(device)
-        labels = batch['labels'].to(device).unsqueeze(1)
-
+        labels = batch['labels'].to(device)
+        
         model.zero_grad()
         optimizer.zero_grad()
 
@@ -190,10 +201,10 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
 
         if model_name == 'tiny-bert':
             loss = criterion(logits, labels)
-            preds = torch.round(logits.detach())
+            preds = logits.detach()
         else:
             loss = outputs['loss']
-            preds = torch.round(outputs['logits'].detach())
+            preds = outputs['logits'].detach()
 
         if n_gpu > 1:
             loss = loss.mean()
@@ -203,7 +214,8 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
         optimizer.step()
         scheduler.step()
         
-        correct_predictions += (preds == labels).sum().item()
+        # Compute Accuracy
+        correct_predictions += correct_preds(preds, labels)
         n_examples += len(labels)
         losses.append(loss.item())
 
@@ -244,7 +256,7 @@ def distill_train_epoch(student_model, teacher_model, student_name, data_loader,
         input_ids = batch['input_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
         token_type_ids = batch['token_type_ids'].to(device)
-        labels = batch['labels'].to(device).unsqueeze(1)
+        labels = batch['labels'].to(device)
         
         student_model.zero_grad()
         optimizer.zero_grad()
@@ -311,8 +323,8 @@ def distill_train_epoch(student_model, teacher_model, student_name, data_loader,
             scheduler.step()
         
         # Compute Student accuracy
-        preds = torch.round(student_logits.detach())
-        correct_predictions += (preds == labels).sum().item()
+        preds = student_logits.detach()
+        correct_predictions += correct_preds(preds, labels)
         n_examples += len(labels)
         
         loop.set_postfix(train_loss = np.mean(losses), train_acc = float(correct_predictions/n_examples))
@@ -340,7 +352,7 @@ def eval_model(model, model_name, data_loader, device):
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             token_type_ids = batch['token_type_ids'].to(device)
-            labels = batch["labels"].to(device).unsqueeze(1)
+            labels = batch["labels"].to(device)
 
             if model_name == 'bert-base-cased':
                 outputs = model(input_ids = input_ids,
@@ -359,15 +371,15 @@ def eval_model(model, model_name, data_loader, device):
 
             if model_name in tinyBert:
                 loss = criterion(logits, labels)
-                preds = torch.round(logits)
+                preds = logits
             else:
                 loss = outputs['loss']
-                preds = torch.round(outputs['logits'])
+                preds = outputs['logits']
 
             if n_gpu > 1:
                 loss = loss.mean()
 
-            correct_predictions += (preds == labels).sum().item()
+            correct_predictions += correct_preds(preds, labels)
             n_examples += len(labels)
             losses.append(loss.item())
 
@@ -397,7 +409,7 @@ def get_predictions(model, model_name, data_loader, device):
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             token_type_ids = batch['token_type_ids'].to(device)
-            labels = batch["labels"].to(device).unsqueeze(1)
+            labels = batch["labels"].to(device)
 
             if model_name == 'bert-base-cased':
                 start = time.perf_counter()
@@ -423,11 +435,11 @@ def get_predictions(model, model_name, data_loader, device):
             timings.append(end-start)
 
             if model_name in tinyBert:
-                preds = torch.round(logits)
+                preds = logits
             else:
-                preds = torch.round(outputs['logits'])
+                preds = outputs['logits']
 
-            correct_predictions += (preds == labels).sum().item()
+            correct_predictions += correct_preds(preds, labels)
             n_examples += len(labels)
 
             predictions.extend(preds)
