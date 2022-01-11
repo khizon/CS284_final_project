@@ -129,21 +129,13 @@ def create_reliable_news_dataloader(file_path, tokenizer, max_len=128, batch_siz
 '''
 Create Model
 '''
-def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, num_layers = None):
+def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, n_layers = None):
     if model_name == 'bert-base-cased':
         tokenizer = BertTokenizer.from_pretrained(model_name)
-        config = BertConfig.from_pretrained(model_name)
-        config.dropout = dropout
-        config.num_labels = 1
-        model = BertForSequenceClassification(config)
+        model = BertForSequenceClassification.from_pretrained(model_name, classifier_dropout = dropout, num_labels = 1)
     elif model_name == 'distilbert-base-cased':
         tokenizer = DistilBertTokenizer.from_pretrained(model_name)
-        config = DistilBertConfig.from_pretrained(model_name)
-        config.dropout = dropout
-        config.num_labels = 1
-        if num_layers:
-            config.num_layers = num_layers
-        model = DistilBertForSequenceClassification(config)
+        model = DistilBertForSequenceClassification.from_pretrained(model_name, dropout = dropout, num_labels = 1, n_layers = n_layers)
     elif model_name == 'tiny-bert':
         tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
         model_path = os.path.join('artifacts', '2nd_General_TinyBERT_6L_768D')
@@ -260,8 +252,8 @@ def distill_train_epoch(student_model, teacher_model, student_name, data_loader,
         if student_name in tinyBert:
             student_logits, student_atts, student_reps = student_model(input_ids = input_ids, attention_mask = attention_mask, token_type_ids = token_type_ids)
         elif student_name == 'distilbert-base-cased':
-            outputs = model(input_ids = input_ids, attention_mask = attention_mask, labels = labels)
-            student_logits = outputs['logtis']
+            outputs = student_model(input_ids = input_ids, attention_mask = attention_mask, labels = labels)
+            student_logits = outputs['logits']
             student_atts = outputs['attentions']
             student_reps = outputs['hidden_states']
             stud_loss = outputs['loss']

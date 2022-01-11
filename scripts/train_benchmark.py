@@ -98,7 +98,7 @@ def train(config = None):
                 "train_loss": train_loss,
                 "val acc": val_acc,
                 "val_loss": val_loss,
-                "epoch" : epoch
+                "epoch" : epoch + 1
             })
 
             # Checkpoint Best Model

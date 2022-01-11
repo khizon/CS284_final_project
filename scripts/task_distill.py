@@ -29,7 +29,7 @@ def task_distill(config = None):
 
         # Initialize Student Model (TinyBert)
         if config.student_model == 'distilbert-base-cased':
-            _, student = create_model(config.student_model, distill = True, num_layers = config.num_layers)
+            _, student = create_model(config.student_model, distill = True, n_layers = config.num_layers)
         else:
             student_path = os.path.join('artifacts', config.student_model)
             student = TinyBertForSequenceClassification.from_pretrained(student_path, num_labels = 1)
@@ -110,7 +110,7 @@ def task_distill(config = None):
                 "train_loss": train_loss,
                 "val acc": val_acc,
                 "val_loss": val_loss,
-                "epoch" : epoch
+                "epoch" : epoch + 1
             })
 
             
@@ -135,7 +135,7 @@ def task_distill(config = None):
 
         # Testing
         if config.student_model == 'distilbert-base-cased':
-            _, model = create_model(config.student_model, distill = True)
+            _, model = create_model(config.student_model, distill = True, n_layers = config.num_layers)
             checkpoint = torch.load(os.path.join('artifacts', 'temp', 'pytorch_model.bin'), map_location=torch.device(device))
             model.load_state_dict(checkpoint['state_dict'])
         else:
@@ -154,7 +154,7 @@ def task_distill(config = None):
             title_only = False
         )
         
-        y_pred, y_test, test_acc, ave_time = get_predictions(model, config.model_name, test_data_loader, device)
+        y_pred, y_test, test_acc, ave_time = get_predictions(model, config.student_model, test_data_loader, device)
 
         test_results = {
             'predictions': y_pred,

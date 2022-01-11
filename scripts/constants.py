@@ -33,23 +33,23 @@ parameter_dict = {
     'weight_decay' : {'value' : 0.10},
     'patience' : {'value': 10},
     'min_delta' : {'value' : 0.005}, 
-    'sample' : {'value' : 32}, # set to false for real training
+    'sample' : {'value' : 8}, # set to false for real training
     'title_only' : {'value' : False}, # modify
     'freeze_bert' : {'value' : False},
     'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
-    'model_name' : {'value' : 'distilbert-base-cased'}, # modify
+    'model_name' : {'value' : 'bert-base-cased'}, # modify
     'seed' : {'value' : 86}
 }
 
 distill_dict = {
-    'learning_rate' : {'value' : 5e-5}, # modify
-    'epochs' : {'value' : 20},
+    'learning_rate' : {'value' : 2e-5}, # modify
+    'epochs' : {'value' : 10},
     'warmup' : {'value' : 0.06},
     'weight_decay' : {'value' : 0.10},
-    'patience' : {'value': 20},
+    'patience' : {'value': 3},
     'min_delta' : {'value' : 0.005},
     'batch_size' : {'value' : 8}, # modify
-    'sample' : {'value' : False}, # set to false for real training
+    'sample' : {'value' : 8}, # set to false for real training
     'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
     'student_model' : {'value' : 'distilbert-base-cased'},
     'num_layers' : {'value' : 4},
@@ -57,5 +57,5 @@ distill_dict = {
     'seed' : {'value' : 86},
     'pred_distill' : {'value' : True},
     'alpha' : {'value' : 0.5},
-    'do_eval' : {'value' : False}
+    'do_eval' : {'value' : True}
 }
