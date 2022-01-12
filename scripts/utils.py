@@ -12,9 +12,9 @@ from torch.nn import CrossEntropyLoss, MSELoss
 
 from transformers import BertConfig, BertTokenizer, BertForSequenceClassification
 from transformers import DistilBertConfig, DistilBertTokenizer, DistilBertForSequenceClassification
+from transformers import MobileBertConfig, MobileBertTokenizer, MobileBertForSequenceClassification
 from transformers import AdamW, get_linear_schedule_with_warmup
 
-from transformer import TinyBertForSequenceClassification
 
 import pandas as pd
 import numpy as np
@@ -138,10 +138,9 @@ def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, 
     elif model_name == 'distilbert-base-cased':
         tokenizer = DistilBertTokenizer.from_pretrained(model_name)
         model = DistilBertForSequenceClassification.from_pretrained(model_name, dropout = dropout, num_labels = 2, n_layers = n_layers)
-    elif model_name == 'tiny-bert':
-        tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
-        model_path = os.path.join('artifacts', '2nd_General_TinyBERT_6L_768D')
-        model = TinyBertForSequenceClassification.from_pretrained(model_path, num_labels = 2)
+    elif model_name == 'google/mobilebert-uncased':
+        tokenizer = MobileBertTokenizer.from_pretrained(model_name)
+        model = MobileBertForSequenceClassification.from_pretrained(model_name, classifier_dropout = dropout, num_labels = 2)
     if freeze_bert:
         for name, param in model.named_parameters():
             if 'classifier' not in name: # classifier layer
@@ -170,9 +169,6 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
     losses = []
     correct_predictions = 0
     n_examples = 0
-    
-    if model_name == 'tiny-bert':
-        criterion = torch.nn.BCEWithLogitsLoss()
 
     loop = tqdm(data_loader)
     for idx, batch in enumerate(loop):
@@ -185,7 +181,7 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
         optimizer.zero_grad()
 
         # with torch.cuda.amp.autocast():
-        if model_name == 'bert-base-cased':
+        if model_name == 'bert-base-cased' or model_name == 'google/mobilebert-uncased':
             outputs = model(input_ids = input_ids,
                             attention_mask = attention_mask,
                             token_type_ids = token_type_ids,
@@ -194,18 +190,10 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
             outputs = model(input_ids = input_ids,
                             attention_mask = attention_mask,
                             labels = labels)
-        elif model_name == 'tiny-bert':
-            logits, _, _ = model(input_ids = input_ids,
-                            attention_mask = attention_mask,
-                            token_type_ids = token_type_ids,
-                            labels = labels)
 
-        if model_name == 'tiny-bert':
-            loss = criterion(logits, labels)
-            preds = logits.detach()
-        else:
-            loss = outputs['loss']
-            preds = outputs['logits'].detach()
+        
+        loss = outputs['loss']
+        preds = outputs['logits'].detach()
 
         if n_gpu > 1:
             loss = loss.mean()
@@ -336,16 +324,12 @@ def distill_train_epoch(student_model, teacher_model, student_name, data_loader,
 Evaluation Function
 '''
 def eval_model(model, model_name, data_loader, device):
-    tinyBert = ['2nd_General_TinyBERT_4L_312D', '2nd_General_TinyBERT_6L_674D']
     model = model.eval()
     n_gpu = torch.cuda.device_count()
 
     losses = []
     correct_predictions = 0
     n_examples = 0
-    
-    if model_name == 'tiny-bert':
-        criterion = torch.nn.BCEWithLogitsLoss()
 
     with torch.no_grad():
         loop = tqdm(data_loader)
@@ -355,7 +339,7 @@ def eval_model(model, model_name, data_loader, device):
             token_type_ids = batch['token_type_ids'].to(device)
             labels = batch["labels"].to(device)
 
-            if model_name == 'bert-base-cased':
+            if model_name == 'bert-base-cased' or model_name == 'google/mobilebert-uncased':
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
                                 token_type_ids = token_type_ids,
@@ -364,18 +348,9 @@ def eval_model(model, model_name, data_loader, device):
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
                                 labels = labels)
-            elif model_name in tinyBert:
-                logits, _, _ = model(input_ids = input_ids,
-                                attention_mask = attention_mask,
-                                token_type_ids = token_type_ids,
-                                labels = labels)
 
-            if model_name in tinyBert:
-                loss = criterion(logits, labels)
-                preds = logits
-            else:
-                loss = outputs['loss']
-                preds = outputs['logits']
+            loss = outputs['loss']
+            preds = outputs['logits']
 
             if n_gpu > 1:
                 loss = loss.mean()
@@ -392,7 +367,7 @@ def eval_model(model, model_name, data_loader, device):
 Get Predictions
 '''
 def get_predictions(model, model_name, data_loader, device):
-    tinyBert = ['2nd_General_TinyBERT_4L_312D', '2nd_General_TinyBERT_6L_674D']
+
     model = model.eval()
     
     predictions = []
@@ -412,7 +387,7 @@ def get_predictions(model, model_name, data_loader, device):
             token_type_ids = batch['token_type_ids'].to(device)
             labels = batch["labels"].to(device)
 
-            if model_name == 'bert-base-cased':
+            if model_name == 'bert-base-cased' or model_name == 'google/mobilebert-uncased':
                 start = time.perf_counter()
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
@@ -425,20 +400,10 @@ def get_predictions(model, model_name, data_loader, device):
                                 attention_mask = attention_mask,
                                 labels = labels)
                 end = time.perf_counter()
-            elif model_name in tinyBert:
-                start = time.perf_counter()
-                logits, _, _ = model(input_ids = input_ids,
-                                attention_mask = attention_mask,
-                                token_type_ids = token_type_ids,
-                                labels = labels)
-                end = time.perf_counter()
-            
+          
             timings.append(end-start)
 
-            if model_name in tinyBert:
-                preds = logits
-            else:
-                preds = outputs['logits']
+            preds = outputs['logits']
 
             correct_predictions += correct_preds(preds, labels)
             n_examples += len(labels)
