@@ -6,7 +6,6 @@ import transformers
 from transformers import BertConfig, BertTokenizer, BertForSequenceClassification
 from transformers import DistilBertConfig, DistilBertTokenizer, DistilBertForSequenceClassification
 from transformers import AdamW, get_linear_schedule_with_warmup
-from transformer.file_utils import WEIGHTS_NAME, CONFIG_NAME
 
 from utils import *
 from constants import *
