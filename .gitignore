@@ -129,5 +129,6 @@ dmypy.json
 .pyre/
 
 data
-trained_models
+artifacts/
+wandb/
 results
