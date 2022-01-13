@@ -12,7 +12,7 @@ from torch.nn import CrossEntropyLoss, MSELoss
 
 from transformers import BertConfig, BertTokenizer, BertForSequenceClassification
 from transformers import DistilBertConfig, DistilBertTokenizer, DistilBertForSequenceClassification
-from transformers import MobileBertConfig, MobileBertTokenizer, MobileBertForSequenceClassification
+from transformers import DebertaConfig, DebertaTokenizer, DebertaForSequenceClassification
 from transformers import AdamW, get_linear_schedule_with_warmup
 
 
@@ -137,10 +137,10 @@ def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, 
         model = BertForSequenceClassification.from_pretrained(model_name, classifier_dropout = dropout, num_labels = 2)
     elif model_name == 'distilbert-base-cased':
         tokenizer = DistilBertTokenizer.from_pretrained(model_name)
-        model = DistilBertForSequenceClassification.from_pretrained(model_name, dropout = dropout, num_labels = 2, n_layers = n_layers)
-    elif model_name == 'google/mobilebert-uncased':
-        tokenizer = MobileBertTokenizer.from_pretrained(model_name)
-        model = MobileBertForSequenceClassification.from_pretrained(model_name, classifier_dropout = dropout, num_labels = 2)
+        model = DistilBertForSequenceClassification.from_pretrained(model_name, seq_classif_dropout_dropout = dropout, num_labels = 2, n_layers = n_layers)
+    elif model_name == 'microsoft/deberta-base':
+        tokenizer = DebertaTokenizer.from_pretrained(model_name)
+        model = DebertaForSequenceClassification.from_pretrained(model_name, classifier_dropout = dropout, num_labels = 2)
     if freeze_bert:
         for name, param in model.named_parameters():
             if 'classifier' not in name: # classifier layer
@@ -181,7 +181,7 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
         optimizer.zero_grad()
 
         # with torch.cuda.amp.autocast():
-        if model_name == 'bert-base-cased' or model_name == 'google/mobilebert-uncased':
+        if model_name == 'bert-base-cased' or model_name == 'microsoft/deberta-base':
             outputs = model(input_ids = input_ids,
                             attention_mask = attention_mask,
                             token_type_ids = token_type_ids,
@@ -339,7 +339,7 @@ def eval_model(model, model_name, data_loader, device):
             token_type_ids = batch['token_type_ids'].to(device)
             labels = batch["labels"].to(device)
 
-            if model_name == 'bert-base-cased' or model_name == 'google/mobilebert-uncased':
+            if model_name == 'bert-base-cased' or model_name == 'microsoft/deberta-base':
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
                                 token_type_ids = token_type_ids,
@@ -387,7 +387,7 @@ def get_predictions(model, model_name, data_loader, device):
             token_type_ids = batch['token_type_ids'].to(device)
             labels = batch["labels"].to(device)
 
-            if model_name == 'bert-base-cased' or model_name == 'google/mobilebert-uncased':
+            if model_name == 'bert-base-cased' or model_name == 'microsoft/deberta-base':
                 start = time.perf_counter()
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
