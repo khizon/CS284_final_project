@@ -12,7 +12,7 @@ from torch.nn import CrossEntropyLoss, MSELoss
 
 from transformers import BertConfig, BertTokenizer, BertForSequenceClassification
 from transformers import DistilBertConfig, DistilBertTokenizer, DistilBertForSequenceClassification
-from transformers import MobileBertConfig, MobileBertTokenizer, MobileBertForSequenceClassification
+from transformers import DebertaConfig, DebertaTokenizer, DebertaForSequenceClassification
 from transformers import AdamW, get_linear_schedule_with_warmup
 
 
@@ -194,7 +194,7 @@ def train_epoch(model, model_name, data_loader, optimizer, device, scheduler, sc
         optimizer.zero_grad()
 
         # with torch.cuda.amp.autocast():
-        if model_name == 'bert-base-cased' or model_name == 'google/mobilebert-uncased':
+        if model_name == 'bert-base-cased' or model_name == 'microsoft/deberta-base':
             outputs = model(input_ids = input_ids,
                             attention_mask = attention_mask,
                             token_type_ids = token_type_ids,
@@ -352,7 +352,7 @@ def eval_model(model, model_name, data_loader, device):
             token_type_ids = batch['token_type_ids'].to(device)
             labels = batch["labels"].to(device)
 
-            if model_name == 'bert-base-cased' or model_name == 'google/mobilebert-uncased':
+            if model_name == 'bert-base-cased' or model_name == 'microsoft/deberta-base':
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
                                 token_type_ids = token_type_ids,
