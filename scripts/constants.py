@@ -66,8 +66,8 @@ distill_dict = {
 }
 
 test_dict = {
-    'model_name' : {'value' : ['khizon/bert-unreliable-news-eng', 'khizon/distilbert-unreliable-news-eng-4L', 'khizon/distilbert-unreliable-news-eng-6L']},
-    'seed' : {'value' : [86, 42, 0, 1, 99]},
+    'model_name' : {'values' : ['khizon/bert-unreliable-news-eng', 'khizon/distilbert-unreliable-news-eng-4L', 'khizon/distilbert-unreliable-news-eng-6L']},
+    'seed' : {'values' : [86, 42, 0, 1, 99]},
     'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
     'batch_size' : {'value' : 8},
 }

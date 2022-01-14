@@ -153,6 +153,8 @@ def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, 
     elif model_name == 'khizon/distilbert-unreliable-news-eng-6L':
         tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-cased')
         model = DistilBertForSequenceClassification.from_pretrained(model_name, num_labels = 2, n_layers = 6)
+    else:
+        raise NotImplementedError(f'{model_name} not implemented!')
     if freeze_bert:
         for name, param in model.named_parameters():
             if 'classifier' not in name: # classifier layer

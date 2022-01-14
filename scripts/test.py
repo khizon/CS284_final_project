@@ -1,18 +1,10 @@
-from tqdm.auto import tqdm
-
-import torch
-import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
-from transformers import BertConfig, BertTokenizer, BertForSequenceClassification
-from transformers import DistilBertConfig, DistilBertTokenizer, DistilBertForSequenceClassification
-from transformers import AdamW, get_linear_schedule_with_warmup
+import transformers
 
 import pandas as pd
 import numpy as np
 import json
-
-from collections import defaultdict
 
 from utils import *
 from constants import *
@@ -24,7 +16,7 @@ def test(config = None):
         config = wandb.config
         
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        seed_everything(config.seed)
+        seed_everything(86)
 
         # Initialize Tokenizer and Model
         tokenizer, model = create_model(config.model_name)
@@ -43,7 +35,7 @@ def test(config = None):
             os.path.join(config.dataset_path, 'test.jsonl'),
             tokenizer,
             max_len = max_len,
-            sample = 1000,
+            sample = 10,
             title_only = title_only,
             random_state = config.seed
         )
