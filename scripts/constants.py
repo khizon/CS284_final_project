@@ -6,6 +6,8 @@ import math
 Config settings for the experiments
 To use the whole dataset: SAMPLE = None
 To use the concatenated title + content: TITLE_ONLY = False
+Dropout parameter only limited to classifier dropout.
+
 
 Files settings for saving checkpoints to WandB
 Change MODEL_NAME when using different settings
@@ -19,7 +21,10 @@ FILES = {
     }
 
 # Random Search Optimization
-sweep_config = {'method' : 'random'}
+sweep_config = {
+    'name' : 'cpu_testing',
+    'method' : 'grid'
+    }
 
 
 # Hyperparameters kept constant
@@ -58,4 +63,11 @@ distill_dict = {
     'pred_distill' : {'value' : True},
     'alpha' : {'value' : 0.5},
     'do_eval' : {'value' : True}
+}
+
+test_dict = {
+    'model_name' : {'value' : ['khizon/bert-unreliable-news-eng', 'khizon/distilbert-unreliable-news-eng-4L', 'khizon/distilbert-unreliable-news-eng-6L']},
+    'seed' : {'value' : [86, 42, 0, 1, 99]},
+    'dataset_path' : {'value' : os.path.join('data', 'nela_gt_2018_site_split')},
+    'batch_size' : {'value' : 8},
 }

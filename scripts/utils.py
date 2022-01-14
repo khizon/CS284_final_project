@@ -115,14 +115,14 @@ class ReliableNewsDataset(Dataset):
             labels = labels
         )
 
-def create_reliable_news_dataloader(file_path, tokenizer, max_len=128, batch_size=8, shuffle=False, sample = None, title_only = True):
+def create_reliable_news_dataloader(file_path, tokenizer, max_len=128, batch_size=8, shuffle=False, sample = None, title_only = True, random_state = 84):
 
     print(f'Max token length: {max_len} Batch size: {batch_size} Shuffle: {shuffle} Title only: {title_only}')
     df = jsonl_to_df(file_path)
     
     # Load only a partial dataset
     if sample:
-        df = df.sample(sample)
+        df = df.sample(sample, random_state = random_state)
     df = pd.get_dummies(df, columns = ['label'])
     
     ds = ReliableNewsDataset(df, tokenizer, max_token_len = max_len, title_only = title_only)
@@ -141,6 +141,18 @@ def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, 
     elif model_name == 'google/mobilebert-uncased':
         tokenizer = MobileBertTokenizer.from_pretrained(model_name)
         model = MobileBertForSequenceClassification.from_pretrained(model_name, classifier_dropout = dropout, num_labels = 2)
+    elif model_name == 'khizon/bert-unreliable-news-eng':
+        tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
+        model = BertForSequenceClassification.from_pretrained(model_name, num_labels = 2)
+    elif model_name == 'khizon/bert-unreliable-news-eng-title':
+        tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
+        model = BertForSequenceClassification.from_pretrained(model_name, num_labels = 2)
+    elif model_name == 'khizon/distilbert-unreliable-news-eng-4L':
+        tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-cased')
+        model = DistilBertForSequenceClassification.from_pretrained(model_name, num_labels = 2, n_layers = 4)
+    elif model_name == 'khizon/distilbert-unreliable-news-eng-6L':
+        tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-cased')
+        model = DistilBertForSequenceClassification.from_pretrained(model_name, num_labels = 2, n_layers = 6)
     if freeze_bert:
         for name, param in model.named_parameters():
             if 'classifier' not in name: # classifier layer
@@ -149,6 +161,7 @@ def create_model(model_name, dropout=0.1, freeze_bert = False, distill = False, 
         model.config.output_attentions = True
         model.config.output_hidden_states = True
     return tokenizer, model
+
 
 '''
 Simple accuracy
@@ -367,7 +380,8 @@ def eval_model(model, model_name, data_loader, device):
 Get Predictions
 '''
 def get_predictions(model, model_name, data_loader, device):
-
+    bert_models = ['bert-base-cased', 'google/mobilebert-uncased', 'khizon/bert-unreliable-news-eng', 'khizon/bert-unreliable-news-eng-title']
+    distilbert_models = ['distlbert-base-cased', 'khizon/distilbert-unreliable-news-eng-4L', 'khizon/distilbert-unreliable-news-eng-6L']
     model = model.eval()
     
     predictions = []
@@ -387,14 +401,14 @@ def get_predictions(model, model_name, data_loader, device):
             token_type_ids = batch['token_type_ids'].to(device)
             labels = batch["labels"].to(device)
 
-            if model_name == 'bert-base-cased' or model_name == 'google/mobilebert-uncased':
+            if model_name in bert_models:
                 start = time.perf_counter()
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
                                 token_type_ids = token_type_ids,
                                 labels = labels)
                 end = time.perf_counter()
-            elif model_name == 'distilbert-base-cased':
+            elif model_name in distilbert_models:
                 start = time.perf_counter()
                 outputs = model(input_ids = input_ids,
                                 attention_mask = attention_mask,
@@ -410,7 +424,7 @@ def get_predictions(model, model_name, data_loader, device):
 
             predictions.extend(preds)
             real_values.extend(labels)
-            loop.set_postfix(test_acc = float(correct_predictions/n_examples))
+            loop.set_postfix(test_acc = float(correct_predictions/n_examples), mean_time = np.mean(timings))
 
     # print(f'correct: {correct_predictions} n: {n_examples}')
     predictions = torch.stack(predictions).cpu().detach().tolist()

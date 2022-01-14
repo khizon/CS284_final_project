@@ -20,11 +20,6 @@ import os
 import wandb
 
 def test(config = None):
-    user = FILES['USER']
-    project = FILES['PROJECT']
-    artifact_ver = f'{FILES["MODEL_NAME"]}:{FILES["VERSION"]}'
-    model_path = f"{user}/{project}/{artifact_ver}"
-
     with wandb.init(config=config,entity=FILES['USER']) as run:
         config = wandb.config
         
@@ -32,52 +27,39 @@ def test(config = None):
         seed_everything(config.seed)
 
         # Initialize Tokenizer and Model
-        tokenizer, model = create_model(config.model_name, config.dropout)
+        tokenizer, model = create_model(config.model_name)
+        model.to(device)
 
+        wandb.watch(model, log='all')
         # Initialize test data set
+        if config.model_name == 'khizon/bert-unreliable-news-eng-title':
+            max_len = 128
+            title_only = True
+        else:
+            max_len = 512
+            title_only = False
+
         test_data_loader = create_reliable_news_dataloader(
             os.path.join(config.dataset_path, 'test.jsonl'),
             tokenizer,
-            max_len = config.max_len,
-            sample = config.sample,
-            title_only = config.title_only
+            max_len = max_len,
+            sample = 1000,
+            title_only = title_only,
+            random_state = config.seed
         )
 
-        wandb.watch(model, log='all')
-        # Load Model From Artifacts
-        artifact = run.use_artifact(model_path, type='model')
-        artifact_dir = artifact.download()
-        checkpoint = torch.load(os.path.join('artifacts', artifact_ver, 'torch_checkpoint.bin'))
-        model.load_state_dict(checkpoint['state_dict'])
-        model.to(device)
-
         y_pred, y_test, test_acc, ave_time = get_predictions(model, config.model_name, test_data_loader, device)
-
-        test_results = {
-            'predictions': y_pred,
-            'labels': y_test,
-            'test_acc' : test_acc,
-            'ave_time' : ave_time
-        }
 
         wandb.log({
             "test acc": test_acc,
             "ave_time": ave_time
         })
 
-        if not os.path.exists(os.path.join('checkpoint')):
-            os.makedirs(os.path.join('checkpoint'))
-
-        with open(os.path.join('checkpoint', 'test_results.json'), 'w', encoding='utf-8') as f:
-            json.dump(test_results, f, ensure_ascii=False, indent=4)
-
-        # Save model to weights and biases
-        artifact = wandb.Artifact('test_results', type='results')
-        artifact.add_file(os.path.join('checkpoint', 'test_results.json'))
-        run.log_artifact(artifact)
         run.join()
         run.finish()
 
 if __name__ == '__main__':
+    transformers.logging.set_verbosity_info()
+    sweep_config['parameters'] = test_dict
     sweep_id = wandb.sweep(sweep_config, project = FILES['PROJECT'])
-    wandb.agent(sweep_id, test, count=1)
+    wandb.agent(sweep_id, test)
